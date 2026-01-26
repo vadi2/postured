@@ -30,6 +30,13 @@ Repository = "https://github.com/vadi2/postured"
 [project.scripts]
 postured = "postured.__main__:main"
 
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=4.0",
+    "pytest-qt>=4.4",
+]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
