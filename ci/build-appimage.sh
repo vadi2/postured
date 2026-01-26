@@ -18,27 +18,21 @@ echo "=== Building ${APP_NAME} AppImage v${APP_VERSION} ==="
 rm -rf "${BUILD_DIR}"
 mkdir -p "${APPDIR}" "${TOOLS_DIR}"
 
-# Download linuxdeploy and plugins
+# Download fresh linuxdeploy tools (ensures latest patchelf for page alignment fixes)
 echo "=== Downloading linuxdeploy tools ==="
 cd "${TOOLS_DIR}"
 
-# linuxdeploy (by TheAssassin)
-if [ ! -f linuxdeploy-x86_64.AppImage ]; then
-    wget -nv "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage"
-    chmod +x linuxdeploy-x86_64.AppImage
-fi
+rm -f linuxdeploy-x86_64.AppImage
+wget -nv "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage"
+chmod +x linuxdeploy-x86_64.AppImage
 
-# linuxdeploy-plugin-conda (download from repo, no releases available)
-if [ ! -f linuxdeploy-plugin-conda.sh ]; then
-    wget -nv "https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-conda/master/linuxdeploy-plugin-conda.sh"
-    chmod +x linuxdeploy-plugin-conda.sh
-fi
+rm -f linuxdeploy-plugin-conda.sh
+wget -nv "https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-conda/master/linuxdeploy-plugin-conda.sh"
+chmod +x linuxdeploy-plugin-conda.sh
 
-# linuxdeploy-plugin-appimage (for final AppImage creation)
-if [ ! -f linuxdeploy-plugin-appimage-x86_64.AppImage ]; then
-    wget -nv "https://github.com/linuxdeploy/linuxdeploy-plugin-appimage/releases/download/continuous/linuxdeploy-plugin-appimage-x86_64.AppImage"
-    chmod +x linuxdeploy-plugin-appimage-x86_64.AppImage
-fi
+rm -f linuxdeploy-plugin-appimage-x86_64.AppImage
+wget -nv "https://github.com/linuxdeploy/linuxdeploy-plugin-appimage/releases/download/continuous/linuxdeploy-plugin-appimage-x86_64.AppImage"
+chmod +x linuxdeploy-plugin-appimage-x86_64.AppImage
 
 # appimagelint (by TheAssassin) - for validation
 if [ ! -f appimagelint-x86_64.AppImage ]; then
@@ -48,15 +42,12 @@ fi
 cd "${SCRIPT_DIR}"
 
 # Set up conda plugin environment variables
-# Auto-accept Anaconda ToS for CI environments
 export CONDA_PLUGINS_AUTO_ACCEPT_TOS=yes
 export CONDA_CHANNELS="conda-forge"
-# Install Python and PyQt6 via conda
-export CONDA_PACKAGES="python=3.11;pyqt>=6.6"
-# Install pip-only packages (mediapipe not on conda) and the app itself
-export PIP_REQUIREMENTS="mediapipe>=0.10.0 opencv-python>=4.8.0 ."
+# Use conda-forge for numpy/opencv (proper page alignment for 16k/64k page size systems)
+export CONDA_PACKAGES="python=3.11;pyqt>=6.6;numpy;opencv"
+export PIP_REQUIREMENTS="mediapipe>=0.10.0 ."
 export PIP_WORKDIR="${PROJECT_DIR}"
-# Cache downloads
 export CONDA_DOWNLOAD_DIR="${TOOLS_DIR}/conda-cache"
 mkdir -p "${CONDA_DOWNLOAD_DIR}"
 
