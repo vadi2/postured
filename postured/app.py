@@ -231,9 +231,11 @@ class Application(QObject):
         if not enabled:
             self.consecutive_no_detection = 0
 
+    @pyqtSlot(str)
     def _on_camera_error(self, message: str):
         self.tray.set_status(f"Camera error: {message}")
 
+    @pyqtSlot()
     def _on_camera_recovered(self):
         self.tray.set_status("Monitoring")
 
