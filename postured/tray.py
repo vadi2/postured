@@ -11,7 +11,7 @@ class TrayIcon(QObject):
     sensitivity_changed = pyqtSignal(float)
     dead_zone_changed = pyqtSignal(float)
     camera_changed = pyqtSignal(int)
-    dim_when_away_toggled = pyqtSignal(bool)
+    lock_when_away_toggled = pyqtSignal(bool)
     quit_requested = pyqtSignal()
 
     SENSITIVITY_OPTIONS = [
@@ -94,13 +94,13 @@ class TrayIcon(QObject):
 
         self.menu.addSeparator()
 
-        self.dim_away_action = QAction("Dim when away", self.menu)
-        self.dim_away_action.setCheckable(True)
-        self.dim_away_action.setChecked(False)
-        self.dim_away_action.triggered.connect(
-            lambda checked: self.dim_when_away_toggled.emit(checked)
+        self.lock_away_action = QAction("Lock when away", self.menu)
+        self.lock_away_action.setCheckable(True)
+        self.lock_away_action.setChecked(False)
+        self.lock_away_action.triggered.connect(
+            lambda checked: self.lock_when_away_toggled.emit(checked)
         )
-        self.menu.addAction(self.dim_away_action)
+        self.menu.addAction(self.lock_away_action)
 
         self.menu.addSeparator()
 

@@ -11,7 +11,7 @@ class Settings:
         'sensitivity': 0.85,
         'dead_zone': 0.03,
         'camera_index': 0,
-        'dim_when_away': False,
+        'lock_when_away': False,
         'good_posture_y': 0.4,
         'bad_posture_y': 0.6,
         'is_calibrated': False,
@@ -48,12 +48,12 @@ class Settings:
         self._settings.setValue('camera_index', value)
 
     @property
-    def dim_when_away(self) -> bool:
-        return self._settings.value('dim_when_away', self.DEFAULTS['dim_when_away'], type=bool)
+    def lock_when_away(self) -> bool:
+        return self._settings.value('lock_when_away', self.DEFAULTS['lock_when_away'], type=bool)
 
-    @dim_when_away.setter
-    def dim_when_away(self, value: bool):
-        self._settings.setValue('dim_when_away', value)
+    @lock_when_away.setter
+    def lock_when_away(self, value: bool):
+        self._settings.setValue('lock_when_away', value)
 
     @property
     def good_posture_y(self) -> float:

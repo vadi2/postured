@@ -1,3 +1,5 @@
+import subprocess
+
 from PyQt6.QtCore import QObject, pyqtSlot
 from PyQt6.QtWidgets import QApplication
 
@@ -32,6 +34,7 @@ class Application(QObject):
         self.consecutive_bad_frames = 0
         self.consecutive_good_frames = 0
         self.consecutive_no_detection = 0
+        self._screen_locked_this_away = False
 
         self._dbus_adaptor = register_dbus_service(self)
 
@@ -49,7 +52,7 @@ class Application(QObject):
         self.tray.sensitivity_changed.connect(self._on_sensitivity_changed)
         self.tray.dead_zone_changed.connect(self._on_dead_zone_changed)
         self.tray.camera_changed.connect(self._on_camera_changed)
-        self.tray.dim_when_away_toggled.connect(self._on_dim_away_toggled)
+        self.tray.lock_when_away_toggled.connect(self._on_lock_away_toggled)
         self.tray.quit_requested.connect(self._quit)
 
     def _start(self):
@@ -122,6 +125,7 @@ class Application(QObject):
             return
 
         self.consecutive_no_detection = 0
+        self._screen_locked_this_away = False
         self._evaluate_posture(nose_y)
 
     @pyqtSlot()
@@ -133,11 +137,10 @@ class Application(QObject):
         self.consecutive_bad_frames = 0
         self.consecutive_good_frames = 0
 
-        if self.settings.dim_when_away and self.consecutive_no_detection >= self.AWAY_THRESHOLD:
-            self.overlay.set_target_opacity(1.0)
-            self.tray.set_status("Away")
-            self.tray.set_posture_state('away')
-            self._emit_dbus_status()
+        if self.consecutive_no_detection >= self.AWAY_THRESHOLD:
+            if self.settings.lock_when_away and not self._screen_locked_this_away:
+                self._lock_screen()
+                self._screen_locked_this_away = True
 
     def _evaluate_posture(self, current_y: float):
         posture_range = abs(self.settings.bad_posture_y - self.settings.good_posture_y)
@@ -226,11 +229,18 @@ class Application(QObject):
         self.start_calibration()
 
     @pyqtSlot(bool)
-    def _on_dim_away_toggled(self, enabled: bool):
-        self.settings.dim_when_away = enabled
+    def _on_lock_away_toggled(self, enabled: bool):
+        self.settings.lock_when_away = enabled
         self.settings.sync()
         if not enabled:
-            self.consecutive_no_detection = 0
+            self._screen_locked_this_away = False
+
+    def _lock_screen(self):
+        """Lock the screen using loginctl (Freedesktop standard)."""
+        try:
+            subprocess.run(['loginctl', 'lock-session'], check=False)
+        except FileNotFoundError:
+            pass  # loginctl not available on this system
 
     @pyqtSlot(str)
     def _on_camera_error(self, message: str):
