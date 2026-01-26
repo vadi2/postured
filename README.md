@@ -22,16 +22,6 @@ uv pip install postured
 postured
 ```
 
-### Desktop Integration
-
-To add postured to your application menu:
-
-```bash
-postured --install-desktop
-```
-
-This installs the `.desktop` file and icon to `~/.local/share/`.
-
 ## Settings
 
 Right-click the tray icon to access:
