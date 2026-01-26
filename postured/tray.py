@@ -23,7 +23,7 @@ class TrayIcon(QObject):
         super().__init__(parent)
 
         self.tray = QSystemTrayIcon(self)
-        self.tray.setIcon(self._get_icon('good'))
+        self.tray.setIcon(self._get_icon("good"))
         self.tray.setToolTip("Postured")
 
         self.menu = QMenu()
@@ -34,11 +34,11 @@ class TrayIcon(QObject):
     def _get_icon(self, state: str) -> QIcon:
         # Use theme icons as fallback
         icons = {
-            'good': 'user-available',
-            'slouching': 'user-busy',
-            'away': 'user-away',
+            "good": "user-available",
+            "slouching": "user-busy",
+            "away": "user-away",
         }
-        return QIcon.fromTheme(icons.get(state, 'user-available'))
+        return QIcon.fromTheme(icons.get(state, "user-available"))
 
     def _build_menu(self):
         self.status_action = QAction("Status: Starting...", self.menu)

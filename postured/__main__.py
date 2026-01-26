@@ -22,18 +22,24 @@ def install_desktop():
     print(f"Installed {desktop_dest}")
 
     # Install icon
-    icons_dir = Path.home() / ".local" / "share" / "icons" / "hicolor" / "scalable" / "apps"
+    icons_dir = (
+        Path.home() / ".local" / "share" / "icons" / "hicolor" / "scalable" / "apps"
+    )
     icons_dir.mkdir(parents=True, exist_ok=True)
     icon_src = resources / "icons" / "postured.svg"
     icon_dest = icons_dir / "postured.svg"
     shutil.copy2(icon_src, icon_dest)
     print(f"Installed {icon_dest}")
 
-    print("Desktop integration installed. You may need to log out and back in for changes to take effect.")
+    print(
+        "Desktop integration installed. You may need to log out and back in for changes to take effect."
+    )
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Posture monitoring with screen dimming")
+    parser = argparse.ArgumentParser(
+        description="Posture monitoring with screen dimming"
+    )
     parser.add_argument(
         "--debug",
         action="store_true",
@@ -60,7 +66,7 @@ def main():
             "Postured",
             "System tray is not available.\n\n"
             "Postured requires a system tray to run. Please ensure your "
-            "desktop environment has a system tray or status notifier service."
+            "desktop environment has a system tray or status notifier service.",
         )
         sys.exit(1)
 
@@ -90,5 +96,5 @@ def main():
     sys.exit(app.exec())
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

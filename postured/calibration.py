@@ -10,7 +10,7 @@ class CalibrationWindow(QWidget):
     calibration_complete = pyqtSignal(float, float, float)  # min_y, max_y, avg_y
     calibration_cancelled = pyqtSignal()
 
-    CORNERS = ['TOP-LEFT', 'TOP-RIGHT', 'BOTTOM-RIGHT', 'BOTTOM-LEFT']
+    CORNERS = ["TOP-LEFT", "TOP-RIGHT", "BOTTOM-RIGHT", "BOTTOM-LEFT"]
     MARGIN = 120
 
     def __init__(self, screen_index: int = 0):
@@ -22,8 +22,7 @@ class CalibrationWindow(QWidget):
         self.pulse_phase = 0.0
 
         self.setWindowFlags(
-            Qt.WindowType.FramelessWindowHint |
-            Qt.WindowType.WindowStaysOnTopHint
+            Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint
         )
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
@@ -51,10 +50,10 @@ class CalibrationWindow(QWidget):
         w, h = self.width(), self.height()
         m = self.MARGIN
         positions = {
-            'TOP-LEFT': QPointF(m, m),
-            'TOP-RIGHT': QPointF(w - m, m),
-            'BOTTOM-RIGHT': QPointF(w - m, h - m),
-            'BOTTOM-LEFT': QPointF(m, h - m),
+            "TOP-LEFT": QPointF(m, m),
+            "TOP-RIGHT": QPointF(w - m, m),
+            "BOTTOM-RIGHT": QPointF(w - m, h - m),
+            "BOTTOM-LEFT": QPointF(m, h - m),
         }
         return positions[corner]
 
@@ -100,14 +99,16 @@ class CalibrationWindow(QWidget):
         painter.setPen(QColor(255, 255, 255))
 
         # Step indicator
-        painter.setFont(QFont('Sans', 20))
+        painter.setFont(QFont("Sans", 20))
         step_text = f"Step {self.current_step + 1} of {len(self.CORNERS)}"
-        painter.drawText(self.rect().adjusted(0, 50, 0, 0),
-                        Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop,
-                        step_text)
+        painter.drawText(
+            self.rect().adjusted(0, 50, 0, 0),
+            Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop,
+            step_text,
+        )
 
         # Main instruction
-        painter.setFont(QFont('Sans', 32, QFont.Weight.DemiBold))
+        painter.setFont(QFont("Sans", 32, QFont.Weight.DemiBold))
         if self.current_step < len(self.CORNERS):
             instruction = f"Look at the {self.CORNERS[self.current_step]} corner"
         else:
@@ -115,12 +116,14 @@ class CalibrationWindow(QWidget):
         painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, instruction)
 
         # Hint
-        painter.setFont(QFont('Sans', 18))
+        painter.setFont(QFont("Sans", 18))
         painter.setPen(QColor(0, 255, 255))
-        hint_rect = self.rect().adjusted(0, 0, 0, -self.height()//2 + 50)
-        painter.drawText(hint_rect,
-                        Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignBottom,
-                        "Press Space when ready  |  Escape to skip")
+        hint_rect = self.rect().adjusted(0, 0, 0, -self.height() // 2 + 50)
+        painter.drawText(
+            hint_rect,
+            Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignBottom,
+            "Press Space when ready  |  Escape to skip",
+        )
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Space:

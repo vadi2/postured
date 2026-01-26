@@ -139,7 +139,9 @@ class PoseDetector(QObject):
         self.thread: QThread | None = None
         self.worker: PoseWorker | None = None
         self.debug = debug
-        self.model_path = Path(__file__).parent / "resources" / "pose_landmarker_lite.task"
+        self.model_path = (
+            Path(__file__).parent / "resources" / "pose_landmarker_lite.task"
+        )
 
     def start(self, camera_index: int = 0):
         if self.thread is not None:
@@ -199,7 +201,11 @@ class PoseDetector(QObject):
 
                 # Extract camera name
                 name_match = re.search(r"Card type\s*:\s*(.+)", output)
-                name = name_match.group(1).strip().rstrip(":") if name_match else f"Camera {i}"
+                name = (
+                    name_match.group(1).strip().rstrip(":")
+                    if name_match
+                    else f"Camera {i}"
+                )
 
                 cameras.append((i, name))
             except (subprocess.TimeoutExpired, FileNotFoundError):
