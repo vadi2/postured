@@ -21,11 +21,13 @@ class PoseWorker(QObject):
     pose_detected = pyqtSignal(float)  # nose_y
     no_detection = pyqtSignal()
     error = pyqtSignal(str)
+    recovered = pyqtSignal()
 
     SMOOTHING_WINDOW = 5
     FRAME_INTERVAL_S = 0.1  # 10 FPS
     MAX_CONSECUTIVE_FAILURES = 30  # ~3 seconds before reporting camera lost
     RECOVERY_CHECK_INTERVAL_S = 5.0
+    MIN_FRAME_VARIANCE = 20.0  # detect blank frames (e.g. hardware privacy switch)
 
     def __init__(self, model_path: Path, camera_index: int):
         super().__init__()
@@ -63,19 +65,23 @@ class PoseWorker(QObject):
 
         while not self._stop_event.is_set():
             ret, frame = capture.read()
-            if not ret:
+            if not ret or frame.std() < self.MIN_FRAME_VARIANCE:
                 consecutive_failures += 1
                 if consecutive_failures >= self.MAX_CONSECUTIVE_FAILURES:
                     if not camera_lost:
                         camera_lost = True
                         self.error.emit("Camera disconnected or unavailable")
                     self._stop_event.wait(self.RECOVERY_CHECK_INTERVAL_S)
+                    # Reopen camera to detect hardware switch recovery
+                    capture.release()
+                    capture = cv2.VideoCapture(self.camera_index)
                 else:
                     self._stop_event.wait(self.FRAME_INTERVAL_S)
                 continue
 
             if camera_lost:
                 camera_lost = False
+                self.recovered.emit()
             consecutive_failures = 0
 
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -111,6 +117,7 @@ class PoseDetector(QObject):
     pose_detected = pyqtSignal(float)  # nose_y: 0.0 (top) to 1.0 (bottom)
     no_detection = pyqtSignal()
     camera_error = pyqtSignal(str)
+    camera_recovered = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -130,6 +137,7 @@ class PoseDetector(QObject):
         self.worker.pose_detected.connect(self.pose_detected)
         self.worker.no_detection.connect(self.no_detection)
         self.worker.error.connect(self.camera_error)
+        self.worker.recovered.connect(self.camera_recovered)
 
         self.thread.start()
 

@@ -41,6 +41,7 @@ class Application(QObject):
         self.pose_detector.pose_detected.connect(self._on_pose_detected)
         self.pose_detector.no_detection.connect(self._on_no_detection)
         self.pose_detector.camera_error.connect(self._on_camera_error)
+        self.pose_detector.camera_recovered.connect(self._on_camera_recovered)
 
         self.tray.enable_toggled.connect(self._on_enable_toggled)
         self.tray.recalibrate_requested.connect(self.start_calibration)
@@ -230,7 +231,10 @@ class Application(QObject):
             self.consecutive_no_detection = 0
 
     def _on_camera_error(self, message: str):
-        self.tray.set_status(f"Camera Error: {message}")
+        self.tray.set_status(f"Camera error: {message}")
+
+    def _on_camera_recovered(self):
+        self.tray.set_status("Monitoring")
 
     def _quit(self):
         self.pose_detector.stop()
