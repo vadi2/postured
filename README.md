@@ -1,4 +1,4 @@
-# <img src="resources/icons/postured.svg" alt="" width="32"> postured
+# <img src="postured/resources/icons/postured.svg" alt="" width="32"> postured
 
 A Linux app that dims your screen when you slouch. Optionally locks your screen when you step away.
 
@@ -21,6 +21,16 @@ uv pip install postured
 ```
 postured
 ```
+
+### Desktop Integration
+
+To add postured to your application menu:
+
+```bash
+postured --install-desktop
+```
+
+This installs the `.desktop` file and icon to `~/.local/share/`.
 
 ## Settings
 
