@@ -79,9 +79,12 @@ fi
 cp "${PROJECT_DIR}/resources/postured.desktop" "${APPDIR}/"
 cp "${PROJECT_DIR}/resources/icons/postured.svg" "${APPDIR}/postured.svg"
 
-# Create the AppRun script BEFORE running linuxdeploy (required for --custom-apprun)
+# Create the AppRun script OUTSIDE the AppDir (linuxdeploy will copy it in)
+# Note: --custom-apprun source must not be inside the AppDir, or linuxdeploy
+# will delete the file before trying to copy it, causing a failure.
 echo "=== Creating AppRun script ==="
-cat > "${APPDIR}/AppRun" << 'APPRUN_EOF'
+APPRUN_FILE="${BUILD_DIR}/AppRun"
+cat > "${APPRUN_FILE}" << 'APPRUN_EOF'
 #!/bin/bash
 # AppRun for Postured
 SELF=$(readlink -f "$0")
@@ -108,7 +111,7 @@ export XDG_DATA_DIRS="${HERE}/usr/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/s
 # Run the application
 exec "${HERE}/usr/conda/bin/python" -m postured "$@"
 APPRUN_EOF
-chmod +x "${APPDIR}/AppRun"
+chmod +x "${APPRUN_FILE}"
 
 # Run linuxdeploy with conda plugin to set up Python environment
 echo "=== Running linuxdeploy with conda plugin ==="
@@ -117,7 +120,7 @@ cd "${BUILD_DIR}"
 "${TOOLS_DIR}/linuxdeploy-x86_64.AppImage" \
     --appdir "${APPDIR}" \
     --plugin conda \
-    --custom-apprun "${APPDIR}/AppRun" \
+    --custom-apprun "${APPRUN_FILE}" \
     --desktop-file "${PROJECT_DIR}/resources/postured.desktop" \
     --icon-file "${PROJECT_DIR}/resources/icons/postured.svg"
 
