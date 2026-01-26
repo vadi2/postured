@@ -1,13 +1,18 @@
-from PyQt6.QtWidgets import QSystemTrayIcon, QMenu
+from PyQt6.QtWidgets import QSystemTrayIcon, QMenu, QApplication
 from PyQt6.QtGui import QIcon, QAction
 from PyQt6.QtCore import QObject, pyqtSignal
+
+from .settings import get_monitor_id
 
 
 class TrayIcon(QObject):
     """System tray icon with menu."""
 
     enable_toggled = pyqtSignal(bool)
-    recalibrate_requested = pyqtSignal()
+    recalibrate_requested = pyqtSignal()  # Recalibrate all monitors
+    recalibrate_monitor_requested = pyqtSignal(
+        str
+    )  # Recalibrate specific monitor by ID
     sensitivity_changed = pyqtSignal(float)
     camera_changed = pyqtSignal(int)
     lock_when_away_toggled = pyqtSignal(bool)
@@ -55,9 +60,10 @@ class TrayIcon(QObject):
         )
         self.menu.addAction(self.enable_action)
 
-        recalibrate_action = QAction("Recalibrate", self.menu)
-        recalibrate_action.triggered.connect(self.recalibrate_requested.emit)
-        self.menu.addAction(recalibrate_action)
+        # Recalibrate submenu
+        self.recalibrate_menu = self.menu.addMenu("Recalibrate")
+        self._calibrated_monitors: set[str] = set()
+        self._rebuild_recalibrate_menu()
 
         self.camera_menu = self.menu.addMenu("Camera")
 
@@ -93,6 +99,45 @@ class TrayIcon(QObject):
         for action, v in self.sensitivity_actions:
             action.setChecked(v == value)
         self.sensitivity_changed.emit(value)
+
+    def _rebuild_recalibrate_menu(self):
+        """Rebuild the recalibrate submenu with current monitors."""
+        self.recalibrate_menu.clear()
+
+        # "All Monitors" option
+        all_action = QAction("All Monitors", self.recalibrate_menu)
+        all_action.triggered.connect(self.recalibrate_requested.emit)
+        self.recalibrate_menu.addAction(all_action)
+
+        # Get current screens
+        app = QApplication.instance()
+        screens = app.screens() if app else []
+
+        if len(screens) > 1:
+            self.recalibrate_menu.addSeparator()
+
+            # Individual monitor options
+            for i, screen in enumerate(screens):
+                monitor_id = get_monitor_id(screen)
+                is_calibrated = monitor_id in self._calibrated_monitors
+
+                # Format: "HDMI-1 (Primary) [✓]" or "DP-2 [ ]"
+                label = screen.name()
+                if i == 0:
+                    label += " (Primary)"
+                label += " [✓]" if is_calibrated else " [ ]"
+
+                action = QAction(label, self.recalibrate_menu)
+                action.triggered.connect(
+                    lambda checked,
+                    mid=monitor_id: self.recalibrate_monitor_requested.emit(mid)
+                )
+                self.recalibrate_menu.addAction(action)
+
+    def update_monitor_calibrations(self, calibrated_monitor_ids: set[str]):
+        """Update which monitors are calibrated and rebuild menu."""
+        self._calibrated_monitors = calibrated_monitor_ids
+        self._rebuild_recalibrate_menu()
 
     def set_status(self, text: str):
         self.status_action.setText(f"Status: {text}")

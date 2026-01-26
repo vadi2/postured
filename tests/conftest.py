@@ -1,10 +1,7 @@
 """Shared pytest fixtures for postured tests."""
 
-import os
-import sys
 from dataclasses import dataclass, field
 from collections import deque
-from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -63,8 +60,19 @@ class MockCalibrationState:
 class MockPoseWorkerState:
     """Mimics PoseWorker state for smoothing tests."""
 
-    nose_history: deque = field(default_factory=lambda: deque(maxlen=5))
+    nose_y_history: deque = field(default_factory=lambda: deque(maxlen=5))
+    nose_x_history: deque = field(default_factory=lambda: deque(maxlen=5))
     SMOOTHING_WINDOW: int = 5
+
+
+@dataclass
+class MockMonitorDetectorState:
+    """Mimics MonitorDetector state for gaze detection tests."""
+
+    _current_monitor_id: str | None = None
+    _pending_monitor_id: str | None = None
+    _pending_frames: int = 0
+    HYSTERESIS_FRAMES: int = 5
 
 
 @pytest.fixture
@@ -89,6 +97,12 @@ def mock_calibration_state():
 def mock_pose_worker_state():
     """Provides a fresh MockPoseWorkerState for each test."""
     return MockPoseWorkerState()
+
+
+@pytest.fixture
+def mock_monitor_detector_state():
+    """Provides a fresh MockMonitorDetectorState for each test."""
+    return MockMonitorDetectorState()
 
 
 @pytest.fixture

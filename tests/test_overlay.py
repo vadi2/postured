@@ -1,6 +1,5 @@
 """Tests for Overlay opacity transition math."""
 
-import pytest
 
 from conftest import MockOverlayState
 
@@ -139,6 +138,7 @@ class TestBounds:
 
     def test_target_clamped_in_overlay_set_method(self):
         """Target is clamped to 0.0-1.0 in set_target_opacity."""
+
         # This tests the clamping logic from Overlay.set_target_opacity
         def set_target_opacity(state, opacity):
             state.target_opacity = max(0.0, min(1.0, opacity))

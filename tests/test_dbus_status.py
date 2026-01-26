@@ -1,6 +1,5 @@
 """Tests for D-Bus status building."""
 
-import pytest
 
 from conftest import MockAppState
 

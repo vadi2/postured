@@ -1,4 +1,25 @@
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
 from PyQt6.QtCore import QSettings
+
+if TYPE_CHECKING:
+    from PyQt6.QtGui import QScreen
+
+
+@dataclass
+class MonitorCalibration:
+    """Per-monitor calibration data."""
+
+    monitor_id: str  # e.g., "HDMI-1_1920x1080"
+    good_posture_y: float
+    bad_posture_y: float
+    is_calibrated: bool = True
+
+
+def get_monitor_id(screen: "QScreen") -> str:
+    """Generate a stable monitor ID from screen properties."""
+    return f"{screen.name()}_{screen.geometry().width()}x{screen.geometry().height()}"
 
 
 class Settings:
@@ -82,3 +103,94 @@ class Settings:
     def sync(self):
         """Force write settings to disk."""
         self._settings.sync()
+
+    # Per-monitor calibration methods
+
+    def get_monitor_calibration(self, monitor_id: str) -> MonitorCalibration | None:
+        """Get calibration data for a specific monitor."""
+        self._settings.beginGroup("monitors")
+        self._settings.beginGroup(monitor_id)
+
+        is_calibrated = self._settings.value("is_calibrated", False, type=bool)
+        if not is_calibrated:
+            self._settings.endGroup()
+            self._settings.endGroup()
+            return None
+
+        good_y = float(
+            self._settings.value("good_posture_y", self.DEFAULTS["good_posture_y"])
+        )
+        bad_y = float(
+            self._settings.value("bad_posture_y", self.DEFAULTS["bad_posture_y"])
+        )
+
+        self._settings.endGroup()
+        self._settings.endGroup()
+
+        return MonitorCalibration(
+            monitor_id=monitor_id,
+            good_posture_y=max(0.0, min(1.0, good_y)),
+            bad_posture_y=max(0.0, min(1.0, bad_y)),
+            is_calibrated=True,
+        )
+
+    def set_monitor_calibration(self, calibration: MonitorCalibration) -> None:
+        """Store calibration data for a specific monitor."""
+        self._settings.beginGroup("monitors")
+        self._settings.beginGroup(calibration.monitor_id)
+
+        self._settings.setValue("good_posture_y", calibration.good_posture_y)
+        self._settings.setValue("bad_posture_y", calibration.bad_posture_y)
+        self._settings.setValue("is_calibrated", calibration.is_calibrated)
+
+        self._settings.endGroup()
+        self._settings.endGroup()
+
+    def get_all_monitor_calibrations(self) -> list[MonitorCalibration]:
+        """Get calibration data for all calibrated monitors."""
+        calibrations = []
+
+        self._settings.beginGroup("monitors")
+        monitor_ids = self._settings.childGroups()
+        self._settings.endGroup()
+
+        for monitor_id in monitor_ids:
+            calibration = self.get_monitor_calibration(monitor_id)
+            if calibration is not None:
+                calibrations.append(calibration)
+
+        return calibrations
+
+    def has_any_calibration(self) -> bool:
+        """Check if any monitor has been calibrated."""
+        # Check per-monitor calibrations
+        calibrations = self.get_all_monitor_calibrations()
+        if calibrations:
+            return True
+
+        # Fall back to legacy global calibration
+        return self.is_calibrated
+
+    def migrate_legacy_calibration(self, primary_monitor_id: str) -> bool:
+        """Migrate legacy global calibration to primary monitor.
+
+        Returns True if migration was performed, False otherwise.
+        """
+        # Only migrate if there's legacy calibration and no per-monitor data
+        if not self.is_calibrated:
+            return False
+
+        existing = self.get_monitor_calibration(primary_monitor_id)
+        if existing is not None:
+            return False  # Already has per-monitor calibration
+
+        # Migrate legacy values to primary monitor
+        calibration = MonitorCalibration(
+            monitor_id=primary_monitor_id,
+            good_posture_y=self.good_posture_y,
+            bad_posture_y=self.bad_posture_y,
+            is_calibrated=True,
+        )
+        self.set_monitor_calibration(calibration)
+        self.sync()
+        return True

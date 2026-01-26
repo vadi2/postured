@@ -18,7 +18,7 @@ from mediapipe.tasks.python.vision import (
 class PoseWorker(QObject):
     """Worker that runs pose detection in a background thread."""
 
-    pose_detected = pyqtSignal(float)  # nose_y
+    pose_detected = pyqtSignal(float, float)  # nose_y, nose_x
     no_detection = pyqtSignal()
     error = pyqtSignal(str)
     recovered = pyqtSignal()
@@ -36,7 +36,8 @@ class PoseWorker(QObject):
         self.camera_index = camera_index
         self.debug = debug
         self._stop_event = threading.Event()
-        self.nose_history: deque[float] = deque(maxlen=self.SMOOTHING_WINDOW)
+        self.nose_y_history: deque[float] = deque(maxlen=self.SMOOTHING_WINDOW)
+        self.nose_x_history: deque[float] = deque(maxlen=self.SMOOTHING_WINDOW)
 
     def run(self):
         """Main loop - runs in background thread."""
@@ -108,8 +109,9 @@ class PoseWorker(QObject):
             if results.pose_landmarks:
                 landmarks = results.pose_landmarks[0]
                 nose = landmarks[PoseLandmark.NOSE]
-                smoothed_y = self._smooth(nose.y)
-                self.pose_detected.emit(smoothed_y)
+                smoothed_y = self._smooth_y(nose.y)
+                smoothed_x = self._smooth_x(nose.x)
+                self.pose_detected.emit(smoothed_y, smoothed_x)
             else:
                 self.no_detection.emit()
 
@@ -121,15 +123,21 @@ class PoseWorker(QObject):
     def stop(self):
         self._stop_event.set()
 
-    def _smooth(self, raw_y: float) -> float:
-        self.nose_history.append(raw_y)
-        return sum(self.nose_history) / len(self.nose_history)
+    def _smooth_y(self, raw_y: float) -> float:
+        self.nose_y_history.append(raw_y)
+        return sum(self.nose_y_history) / len(self.nose_y_history)
+
+    def _smooth_x(self, raw_x: float) -> float:
+        self.nose_x_history.append(raw_x)
+        return sum(self.nose_x_history) / len(self.nose_x_history)
 
 
 class PoseDetector(QObject):
     """Captures camera frames and detects pose using MediaPipe in a background thread."""
 
-    pose_detected = pyqtSignal(float)  # nose_y: 0.0 (top) to 1.0 (bottom)
+    pose_detected = pyqtSignal(
+        float, float
+    )  # nose_y: 0.0 (top) to 1.0 (bottom), nose_x: 0.0 (left) to 1.0 (right)
     no_detection = pyqtSignal()
     camera_error = pyqtSignal(str)
     camera_recovered = pyqtSignal()

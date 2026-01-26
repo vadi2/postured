@@ -1,6 +1,5 @@
 """Tests for calibration logic."""
 
-import pytest
 
 from conftest import MockCalibrationState
 

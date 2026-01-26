@@ -1,6 +1,5 @@
 """Tests for posture evaluation algorithm."""
 
-import pytest
 
 from conftest import MockAppState
 

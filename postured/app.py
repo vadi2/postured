@@ -2,14 +2,99 @@ import subprocess
 import sys
 
 from PyQt6.QtCore import QObject, pyqtSlot
+from PyQt6.QtGui import QScreen
 from PyQt6.QtWidgets import QApplication
 
 from .pose_detector import PoseDetector
 from .overlay import Overlay
 from .calibration import CalibrationWindow
 from .tray import TrayIcon
-from .settings import Settings
+from .settings import Settings, MonitorCalibration, get_monitor_id
 from .dbus_service import register_dbus_service
+
+
+class MonitorDetector:
+    """Determines which monitor the user is looking at based on nose X position."""
+
+    HYSTERESIS_FRAMES = 5  # Frames before switching monitors
+
+    def __init__(self):
+        self._current_monitor_id: str | None = None
+        self._pending_monitor_id: str | None = None
+        self._pending_frames: int = 0
+
+    def update(self, nose_x: float, screens: list[QScreen]) -> str | None:
+        """Update monitor detection with new nose X position.
+
+        Args:
+            nose_x: Nose X position from camera (0.0=left, 1.0=right)
+            screens: List of available screens
+
+        Returns:
+            Current monitor ID, or None if no screens available
+        """
+        if not screens:
+            return None
+
+        detected = self._detect_monitor(nose_x, screens)
+
+        # Apply hysteresis
+        if detected != self._current_monitor_id:
+            if detected == self._pending_monitor_id:
+                self._pending_frames += 1
+                if self._pending_frames >= self.HYSTERESIS_FRAMES:
+                    self._current_monitor_id = detected
+                    self._pending_monitor_id = None
+                    self._pending_frames = 0
+            else:
+                self._pending_monitor_id = detected
+                self._pending_frames = 1
+        else:
+            self._pending_monitor_id = None
+            self._pending_frames = 0
+
+        return self._current_monitor_id
+
+    def _detect_monitor(self, nose_x: float, screens: list[QScreen]) -> str:
+        """Map nose X position to monitor ID.
+
+        Camera is mirrored: left in camera = right on screen.
+        """
+        # Mirror the X coordinate
+        mirrored_x = 1.0 - nose_x
+
+        # Sort screens by X position (left to right)
+        sorted_screens = sorted(screens, key=lambda s: s.geometry().x())
+
+        # Calculate total desktop width
+        total_width = sum(s.geometry().width() for s in sorted_screens)
+        if total_width == 0:
+            return get_monitor_id(sorted_screens[0])
+
+        # Map mirrored_x to desktop coordinate
+        desktop_x = mirrored_x * total_width
+
+        # Find containing screen
+        cumulative_x = 0
+        for screen in sorted_screens:
+            screen_width = screen.geometry().width()
+            if desktop_x < cumulative_x + screen_width:
+                return get_monitor_id(screen)
+            cumulative_x += screen_width
+
+        # Fallback to last screen
+        return get_monitor_id(sorted_screens[-1])
+
+    @property
+    def current_monitor_id(self) -> str | None:
+        """Currently detected monitor ID."""
+        return self._current_monitor_id
+
+    def reset(self) -> None:
+        """Reset detection state."""
+        self._current_monitor_id = None
+        self._pending_monitor_id = None
+        self._pending_frames = 0
 
 
 class Application(QObject):
@@ -27,17 +112,23 @@ class Application(QObject):
         self._last_debug_state: str | None = None
         self.settings = Settings()
 
+        # Multi-monitor support
+        self.monitor_detector = MonitorDetector()
+        self.current_monitor_id: str | None = None
+        self.monitor_calibrations: dict[str, MonitorCalibration] = {}
+        self._load_monitor_calibrations()
+
         if self.debug:
             self._print_debug("Debug mode enabled")
-            self._print_debug(f"Calibrated: {self.settings.is_calibrated}")
-            self._print_debug(f"Good posture Y: {self.settings.good_posture_y:.4f}")
-            self._print_debug(f"Bad posture Y: {self.settings.bad_posture_y:.4f}")
+            self._print_debug(f"Legacy calibrated: {self.settings.is_calibrated}")
+            self._print_debug(f"Monitor calibrations: {len(self.monitor_calibrations)}")
             self._print_debug(f"Sensitivity: {self.settings.sensitivity:.2f}")
 
         self.pose_detector = PoseDetector(self, debug=self.debug)
         self.overlay = Overlay(self)
         self.tray = TrayIcon(self)
         self.calibration: CalibrationWindow | None = None
+        self._calibrating_screens: list[QScreen] | None = None
 
         self.is_enabled = True
         self.is_calibrating = False
@@ -52,6 +143,20 @@ class Application(QObject):
         self._connect_signals()
         self._start()
 
+    def _load_monitor_calibrations(self):
+        """Load all monitor calibrations from settings."""
+        self.monitor_calibrations.clear()
+        for calibration in self.settings.get_all_monitor_calibrations():
+            self.monitor_calibrations[calibration.monitor_id] = calibration
+
+    def _get_calibrated_monitor_ids(self) -> set[str]:
+        """Get set of calibrated monitor IDs."""
+        return set(self.monitor_calibrations.keys())
+
+    def _update_tray_calibrations(self):
+        """Update tray menu with current calibration status."""
+        self.tray.update_monitor_calibrations(self._get_calibrated_monitor_ids())
+
     def _connect_signals(self):
         self.pose_detector.pose_detected.connect(self._on_pose_detected)
         self.pose_detector.no_detection.connect(self._on_no_detection)
@@ -60,18 +165,35 @@ class Application(QObject):
 
         self.tray.enable_toggled.connect(self._on_enable_toggled)
         self.tray.recalibrate_requested.connect(self.start_calibration)
+        self.tray.recalibrate_monitor_requested.connect(self._on_recalibrate_monitor)
         self.tray.sensitivity_changed.connect(self._on_sensitivity_changed)
         self.tray.camera_changed.connect(self._on_camera_changed)
         self.tray.lock_when_away_toggled.connect(self._on_lock_away_toggled)
         self.tray.quit_requested.connect(self._quit)
 
+        # Screen hotplug handling
+        app = QApplication.instance()
+        if app:
+            app.screenAdded.connect(self._on_screen_added)
+            app.screenRemoved.connect(self._on_screen_removed)
+
     def _start(self):
         cameras = PoseDetector.available_cameras()
         self.tray.update_cameras(cameras, self.settings.camera_index)
 
+        # Migrate legacy calibration if needed
+        screens = QApplication.instance().screens()
+        if screens:
+            primary_id = get_monitor_id(screens[0])
+            if self.settings.migrate_legacy_calibration(primary_id):
+                self._load_monitor_calibrations()
+                if self.debug:
+                    self._print_debug(f"Migrated legacy calibration to {primary_id}")
+
+        self._update_tray_calibrations()
         self.pose_detector.start(self.settings.camera_index)
 
-        if not self.settings.is_calibrated:
+        if not self.settings.has_any_calibration():
             self.start_calibration()
         else:
             self.tray.set_status("Monitoring")
@@ -84,7 +206,12 @@ class Application(QObject):
         """Print debug message to stderr."""
         print(f"[postured] {message}", file=sys.stderr, flush=True)
 
-    def start_calibration(self):
+    def start_calibration(self, screens: list[QScreen] | None = None):
+        """Start calibration for specified screens or all screens.
+
+        Args:
+            screens: List of screens to calibrate, or None for all screens.
+        """
         if self.is_calibrating:
             return
 
@@ -93,8 +220,18 @@ class Application(QObject):
         self.overlay.set_target_opacity(0)
         self.tray.set_status("Calibrating...")
 
-        self.calibration = CalibrationWindow()
-        self.calibration.calibration_complete.connect(self._on_calibration_complete)
+        # Determine which screens to calibrate
+        if screens is None:
+            screens = QApplication.instance().screens()
+        self._calibrating_screens = screens
+
+        self.calibration = CalibrationWindow(screens_to_calibrate=screens)
+        self.calibration.calibration_complete.connect(
+            self._on_monitor_calibration_complete
+        )
+        self.calibration.all_calibrations_complete.connect(
+            self._on_all_calibrations_complete
+        )
         self.calibration.calibration_cancelled.connect(self._on_calibration_cancelled)
 
         # Forward pose data to calibration window
@@ -102,25 +239,48 @@ class Application(QObject):
 
         self.calibration.start()
 
-    @pyqtSlot(float, float, float)
-    def _on_calibration_complete(self, min_y: float, max_y: float, avg_y: float):
+    @pyqtSlot(str)
+    def _on_recalibrate_monitor(self, monitor_id: str):
+        """Recalibrate a specific monitor."""
+        screens = QApplication.instance().screens()
+        for screen in screens:
+            if get_monitor_id(screen) == monitor_id:
+                self.start_calibration([screen])
+                return
+
+    @pyqtSlot(str, float, float, float)
+    def _on_monitor_calibration_complete(
+        self, monitor_id: str, min_y: float, max_y: float, avg_y: float
+    ):
+        """Handle calibration completion for a single monitor."""
         # In MediaPipe, higher Y = lower in frame = slouching
         # So min_y = good posture (looking up), max_y = bad posture (looking down)
-        self.settings.good_posture_y = min_y
-        self.settings.bad_posture_y = max_y
-        self.settings.is_calibrated = True
+        calibration = MonitorCalibration(
+            monitor_id=monitor_id,
+            good_posture_y=min_y,
+            bad_posture_y=max_y,
+            is_calibrated=True,
+        )
+        self.settings.set_monitor_calibration(calibration)
+        self.monitor_calibrations[monitor_id] = calibration
         self.settings.sync()
 
         if self.debug:
             self._print_debug(
-                f"Calibration complete: good_y={min_y:.4f} bad_y={max_y:.4f} range={max_y - min_y:.4f}"
+                f"Monitor {monitor_id} calibrated: good_y={min_y:.4f} bad_y={max_y:.4f} range={max_y - min_y:.4f}"
             )
 
+        self._update_tray_calibrations()
+
+    @pyqtSlot()
+    def _on_all_calibrations_complete(self):
+        """Handle completion of all monitor calibrations."""
         self._finish_calibration()
         self.tray.set_status("Calibrated")
 
     @pyqtSlot()
     def _on_calibration_cancelled(self):
+        # Mark as calibrated so we don't prompt again (user can use defaults)
         self.settings.is_calibrated = True
         self._finish_calibration()
         self.tray.set_status("Using defaults")
@@ -130,22 +290,37 @@ class Application(QObject):
         self.is_enabled = True
         self.consecutive_bad_frames = 0
         self.consecutive_good_frames = 0
+        self._calibrating_screens = None
 
         if self.calibration:
             self.pose_detector.pose_detected.disconnect(self.calibration.update_nose_y)
             self.calibration.deleteLater()
             self.calibration = None
 
+        self._update_tray_calibrations()
         self._emit_dbus_status()
 
-    @pyqtSlot(float)
-    def _on_pose_detected(self, nose_y: float):
+    @pyqtSlot(float, float)
+    def _on_pose_detected(self, nose_y: float, nose_x: float):
         if self.is_calibrating or not self.is_enabled:
             return
 
         self.consecutive_no_detection = 0
         self._screen_locked_this_away = False
-        self._evaluate_posture(nose_y)
+
+        # Update monitor detection
+        screens = QApplication.instance().screens()
+        self.current_monitor_id = self.monitor_detector.update(nose_x, screens)
+
+        # Get calibration for current monitor
+        calibration = self._get_active_calibration()
+        self._evaluate_posture(nose_y, calibration)
+
+    def _get_active_calibration(self) -> MonitorCalibration | None:
+        """Get calibration for the current monitor, or None for defaults."""
+        if self.current_monitor_id:
+            return self.monitor_calibrations.get(self.current_monitor_id)
+        return None
 
     @pyqtSlot()
     def _on_no_detection(self):
@@ -168,13 +343,24 @@ class Application(QObject):
                 self._lock_screen()
                 self._screen_locked_this_away = True
 
-    def _evaluate_posture(self, current_y: float):
-        posture_range = abs(self.settings.bad_posture_y - self.settings.good_posture_y)
+    def _evaluate_posture(
+        self, current_y: float, calibration: MonitorCalibration | None
+    ):
+        # Use per-monitor calibration or fall back to global defaults
+        if calibration:
+            good_y = calibration.good_posture_y
+            bad_y = calibration.bad_posture_y
+        else:
+            # Fallback to global defaults
+            good_y = self.settings.DEFAULTS["good_posture_y"]
+            bad_y = self.settings.DEFAULTS["bad_posture_y"]
+
+        posture_range = abs(bad_y - good_y)
         if posture_range < 0.01:
             posture_range = 0.2
 
         # Slouching = nose Y is ABOVE bad_posture_y (lower in frame = higher Y value)
-        slouch_amount = current_y - self.settings.bad_posture_y
+        slouch_amount = current_y - bad_y
 
         base_threshold = self.DEAD_ZONE * posture_range * self.settings.sensitivity
 
@@ -205,8 +391,13 @@ class Application(QObject):
                 self.tray.set_posture_state("slouching")
 
                 if self.debug:
+                    monitor_info = (
+                        f"monitor={self.current_monitor_id}"
+                        if self.current_monitor_id
+                        else "monitor=default"
+                    )
                     self._print_debug(
-                        f"SLOUCHING | nose_y={current_y:.4f} slouch={slouch_amount:+.4f} "
+                        f"SLOUCHING | {monitor_info} nose_y={current_y:.4f} slouch={slouch_amount:+.4f} "
                         f"thresh={threshold:.4f} severity={severity:.2f} opacity={opacity:.2f} "
                         f"bad_frames={self.consecutive_bad_frames}"
                     )
@@ -226,8 +417,13 @@ class Application(QObject):
                 self.tray.set_posture_state("good")
 
                 if self.debug and was_slouching:
+                    monitor_info = (
+                        f"monitor={self.current_monitor_id}"
+                        if self.current_monitor_id
+                        else "monitor=default"
+                    )
                     self._print_debug(
-                        f"GOOD      | nose_y={current_y:.4f} slouch={slouch_amount:+.4f} "
+                        f"GOOD      | {monitor_info} nose_y={current_y:.4f} slouch={slouch_amount:+.4f} "
                         f"thresh={threshold:.4f} good_frames={self.consecutive_good_frames}"
                     )
 
@@ -298,6 +494,39 @@ class Application(QObject):
         if self.debug:
             self._print_debug("Camera recovered")
         self.tray.set_status("Monitoring")
+
+    @pyqtSlot(QScreen)
+    def _on_screen_added(self, screen: QScreen):
+        """Handle new screen being connected."""
+        monitor_id = get_monitor_id(screen)
+        if self.debug:
+            self._print_debug(f"Screen added: {monitor_id}")
+
+        # Update overlay to include new screen
+        self.overlay.cleanup()
+        self.overlay = Overlay(self)
+
+        # Update tray menu
+        self._update_tray_calibrations()
+
+    @pyqtSlot(QScreen)
+    def _on_screen_removed(self, screen: QScreen):
+        """Handle screen being disconnected."""
+        monitor_id = get_monitor_id(screen)
+        if self.debug:
+            self._print_debug(f"Screen removed: {monitor_id}")
+
+        # Reset monitor detector if current monitor was removed
+        if self.current_monitor_id == monitor_id:
+            self.monitor_detector.reset()
+            self.current_monitor_id = None
+
+        # Update overlay
+        self.overlay.cleanup()
+        self.overlay = Overlay(self)
+
+        # Update tray menu
+        self._update_tray_calibrations()
 
     def shutdown(self):
         """Clean up resources for graceful shutdown."""
