@@ -6,6 +6,8 @@ from PyQt6.QtGui import QPainter, QColor
 class OverlayWindow(QWidget):
     """Single full-screen overlay window."""
 
+    MAX_OPACITY = 0.85
+
     def __init__(self, screen):
         super().__init__()
         self.opacity_level = 0.0
@@ -31,7 +33,7 @@ class OverlayWindow(QWidget):
         if self.opacity_level <= 0:
             return
         painter = QPainter(self)
-        color = QColor(0, 0, 0, int(self.opacity_level * 255 * 0.85))
+        color = QColor(0, 0, 0, int(self.opacity_level * 255 * self.MAX_OPACITY))
         painter.fillRect(self.rect(), color)
 
 

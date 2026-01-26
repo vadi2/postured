@@ -14,6 +14,7 @@ class Application(QObject):
 
     FRAME_THRESHOLD = 8
     AWAY_THRESHOLD = 15
+    HYSTERESIS_FACTOR = 0.5
 
     def __init__(self):
         super().__init__()
@@ -150,7 +151,7 @@ class Application(QObject):
 
         # Hysteresis
         enter_threshold = base_threshold
-        exit_threshold = base_threshold * 0.5
+        exit_threshold = base_threshold * self.HYSTERESIS_FACTOR
 
         threshold = exit_threshold if self.is_slouching else enter_threshold
         is_bad_posture = slouch_amount > threshold

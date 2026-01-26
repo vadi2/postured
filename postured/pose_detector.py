@@ -28,6 +28,7 @@ class PoseWorker(QObject):
     MAX_CONSECUTIVE_FAILURES = 30  # ~3 seconds before reporting camera lost
     RECOVERY_CHECK_INTERVAL_S = 2.0
     MIN_FRAME_VARIANCE = 20.0  # detect blank frames (e.g. hardware privacy switch)
+    MIN_CONFIDENCE = 0.5
 
     def __init__(self, model_path: Path, camera_index: int):
         super().__init__()
@@ -46,9 +47,9 @@ class PoseWorker(QObject):
             base_options=BaseOptions(model_asset_path=str(self.model_path)),
             running_mode=RunningMode.VIDEO,
             num_poses=1,
-            min_pose_detection_confidence=0.5,
-            min_pose_presence_confidence=0.5,
-            min_tracking_confidence=0.5,
+            min_pose_detection_confidence=self.MIN_CONFIDENCE,
+            min_pose_presence_confidence=self.MIN_CONFIDENCE,
+            min_tracking_confidence=self.MIN_CONFIDENCE,
         )
         try:
             landmarker = PoseLandmarker.create_from_options(options)
