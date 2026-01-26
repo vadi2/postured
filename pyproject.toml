@@ -2,13 +2,30 @@
 name = "postured"
 version = "1.0.0"
 description = "A Linux app that dims your screen when you slouch"
+readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
+authors = [{name = "Vadim Peretokin"}]
+keywords = ["posture", "health", "webcam", "ergonomics"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: X11 Applications :: Qt",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Desktop Environment",
+]
 dependencies = [
     "mediapipe>=0.10.0",
     "opencv-python>=4.8.0",
     "PyQt6>=6.6.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/vadi2/postured"
+Repository = "https://github.com/vadi2/postured"
 
 [project.scripts]
 postured = "postured.__main__:main"
