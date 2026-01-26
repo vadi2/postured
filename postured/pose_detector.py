@@ -24,6 +24,8 @@ class PoseWorker(QObject):
 
     SMOOTHING_WINDOW = 5
     FRAME_INTERVAL_S = 0.1  # 10 FPS
+    MAX_CONSECUTIVE_FAILURES = 30  # ~3 seconds before reporting camera lost
+    RECOVERY_CHECK_INTERVAL_S = 5.0
 
     def __init__(self, model_path: Path, camera_index: int):
         super().__init__()
@@ -56,12 +58,25 @@ class PoseWorker(QObject):
 
         self._stop_event.clear()
         frame_timestamp = 0
+        consecutive_failures = 0
+        camera_lost = False
 
         while not self._stop_event.is_set():
             ret, frame = capture.read()
             if not ret:
-                self._stop_event.wait(self.FRAME_INTERVAL_S)
+                consecutive_failures += 1
+                if consecutive_failures >= self.MAX_CONSECUTIVE_FAILURES:
+                    if not camera_lost:
+                        camera_lost = True
+                        self.error.emit("Camera disconnected or unavailable")
+                    self._stop_event.wait(self.RECOVERY_CHECK_INTERVAL_S)
+                else:
+                    self._stop_event.wait(self.FRAME_INTERVAL_S)
                 continue
+
+            if camera_lost:
+                camera_lost = False
+            consecutive_failures = 0
 
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
