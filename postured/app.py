@@ -110,6 +110,7 @@ class Application(QObject):
 
         if self.calibration:
             self.pose_detector.pose_detected.disconnect(self.calibration.update_nose_y)
+            self.calibration.deleteLater()
             self.calibration = None
 
         self._emit_dbus_status()
