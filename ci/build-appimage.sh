@@ -53,8 +53,8 @@ export CONDA_PLUGINS_AUTO_ACCEPT_TOS=yes
 export CONDA_CHANNELS="conda-forge"
 # Install Python and PyQt6 via conda
 export CONDA_PACKAGES="python=3.11;pyqt>=6.6"
-# Install pip-only packages (mediapipe not on conda)
-export PIP_REQUIREMENTS="mediapipe>=0.10.0 opencv-python>=4.8.0"
+# Install pip-only packages (mediapipe not on conda) and the app itself
+export PIP_REQUIREMENTS="mediapipe>=0.10.0 opencv-python>=4.8.0 ."
 export PIP_WORKDIR="${PROJECT_DIR}"
 # Cache downloads
 export CONDA_DOWNLOAD_DIR="${TOOLS_DIR}/conda-cache"
@@ -123,14 +123,6 @@ cd "${BUILD_DIR}"
     --custom-apprun "${APPRUN_FILE}" \
     --desktop-file "${PROJECT_DIR}/resources/postured.desktop" \
     --icon-file "${PROJECT_DIR}/resources/icons/postured.svg"
-
-# Install the postured package itself
-echo "=== Installing postured package ==="
-PYTHON="${APPDIR}/usr/conda/bin/python"
-PIP="${APPDIR}/usr/conda/bin/pip"
-
-# Install the postured package (dependencies already installed via PIP_REQUIREMENTS)
-"${PIP}" install --no-deps "${PROJECT_DIR}"
 
 # Create the final AppImage
 echo "=== Creating AppImage ==="
