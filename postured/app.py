@@ -6,6 +6,7 @@ from .overlay import Overlay
 from .calibration import CalibrationWindow
 from .tray import TrayIcon
 from .settings import Settings
+from .dbus_service import register_dbus_service
 
 
 class Application(QObject):
@@ -30,6 +31,8 @@ class Application(QObject):
         self.consecutive_bad_frames = 0
         self.consecutive_good_frames = 0
         self.consecutive_no_detection = 0
+
+        self._dbus_adaptor = register_dbus_service(self)
 
         self._connect_signals()
         self._start()
@@ -57,6 +60,10 @@ class Application(QObject):
             self.start_calibration()
         else:
             self.tray.set_status("Monitoring")
+
+    def _emit_dbus_status(self):
+        if self._dbus_adaptor:
+            self._dbus_adaptor.emit_status_changed()
 
     def start_calibration(self):
         if self.is_calibrating:
@@ -104,6 +111,8 @@ class Application(QObject):
             self.pose_detector.pose_detected.disconnect(self.calibration.update_nose_y)
             self.calibration = None
 
+        self._emit_dbus_status()
+
     @pyqtSlot(float)
     def _on_pose_detected(self, nose_y: float):
         if self.is_calibrating or not self.is_enabled:
@@ -125,6 +134,7 @@ class Application(QObject):
             self.overlay.set_target_opacity(1.0)
             self.tray.set_status("Away")
             self.tray.set_posture_state('away')
+            self._emit_dbus_status()
 
     def _evaluate_posture(self, current_y: float):
         posture_range = abs(self.settings.bad_posture_y - self.settings.good_posture_y)
@@ -148,6 +158,7 @@ class Application(QObject):
             self.consecutive_good_frames = 0
 
             if self.consecutive_bad_frames >= self.FRAME_THRESHOLD:
+                was_slouching = self.is_slouching
                 self.is_slouching = True
 
                 # Calculate blur intensity
@@ -160,6 +171,9 @@ class Application(QObject):
 
                 self.tray.set_status("Slouching")
                 self.tray.set_posture_state('slouching')
+
+                if not was_slouching:
+                    self._emit_dbus_status()
         else:
             self.consecutive_good_frames += 1
             self.consecutive_bad_frames = 0
@@ -167,13 +181,18 @@ class Application(QObject):
             self.overlay.set_target_opacity(0)
 
             if self.consecutive_good_frames >= self.FRAME_THRESHOLD:
+                was_slouching = self.is_slouching
                 self.is_slouching = False
                 self.tray.set_status("Good Posture")
                 self.tray.set_posture_state('good')
 
+                if was_slouching:
+                    self._emit_dbus_status()
+
     @pyqtSlot(bool)
     def _on_enable_toggled(self, enabled: bool):
         self.is_enabled = enabled
+        self.tray.set_enabled(enabled)
         if not enabled:
             self.overlay.set_target_opacity(0)
             self.tray.set_status("Disabled")
@@ -181,6 +200,7 @@ class Application(QObject):
         else:
             self.tray.set_status("Monitoring")
             self.pose_detector.start(self.settings.camera_index)
+        self._emit_dbus_status()
 
     @pyqtSlot(float)
     def _on_sensitivity_changed(self, value: float):

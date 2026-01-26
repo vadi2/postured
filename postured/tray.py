@@ -125,6 +125,10 @@ class TrayIcon(QObject):
     def set_status(self, text: str):
         self.status_action.setText(f"Status: {text}")
 
+    def set_enabled(self, enabled: bool):
+        """Update the enabled checkbox state."""
+        self.enable_action.setChecked(enabled)
+
     def set_posture_state(self, state: str):
         """Update icon based on posture state ('good', 'slouching', 'away')."""
         self.tray.setIcon(self._get_icon(state))

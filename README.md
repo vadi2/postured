@@ -16,6 +16,19 @@ uv pip install .
 postured
 ```
 
+## D-Bus Interface
+
+Control postured via D-Bus:
+
+```bash
+# Pause/Resume
+busctl --user call org.postured.Postured /org/postured/Postured org.postured.Postured1 Pause
+busctl --user call org.postured.Postured /org/postured/Postured org.postured.Postured1 Resume
+
+# Get status
+busctl --user call org.postured.Postured /org/postured/Postured org.postured.Postured1 GetStatus
+```
+
 ## Requirements
 
 - Python 3.11+
