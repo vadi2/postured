@@ -99,6 +99,14 @@ export LD_LIBRARY_PATH="${HERE}/usr/conda/lib:${HERE}/usr/lib:${LD_LIBRARY_PATH}
 # XDG paths for proper desktop integration
 export XDG_DATA_DIRS="${HERE}/usr/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
 
+# X11/XKB keyboard configuration (required by Qt/Wayland)
+# Override compiled-in paths from CI environment
+export XKB_CONFIG_ROOT="${HERE}/usr/conda/share/X11/xkb"
+
+# Fontconfig - use bundled config
+export FONTCONFIG_PATH="${HERE}/usr/conda/etc/fonts"
+export FONTCONFIG_FILE="${HERE}/usr/conda/etc/fonts/fonts.conf"
+
 # Run the application
 exec "${HERE}/usr/conda/bin/python" -m postured "$@"
 APPRUN_EOF
