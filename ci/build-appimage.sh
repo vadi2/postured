@@ -24,25 +24,25 @@ cd "${TOOLS_DIR}"
 
 # linuxdeploy (by TheAssassin)
 if [ ! -f linuxdeploy-x86_64.AppImage ]; then
-    wget -q --show-progress "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage"
+    wget -nv "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage"
     chmod +x linuxdeploy-x86_64.AppImage
 fi
 
 # linuxdeploy-plugin-conda (download from repo, no releases available)
 if [ ! -f linuxdeploy-plugin-conda.sh ]; then
-    wget -q --show-progress "https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-conda/master/linuxdeploy-plugin-conda.sh"
+    wget -nv "https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-conda/master/linuxdeploy-plugin-conda.sh"
     chmod +x linuxdeploy-plugin-conda.sh
 fi
 
 # linuxdeploy-plugin-appimage (for final AppImage creation)
 if [ ! -f linuxdeploy-plugin-appimage-x86_64.AppImage ]; then
-    wget -q --show-progress "https://github.com/linuxdeploy/linuxdeploy-plugin-appimage/releases/download/continuous/linuxdeploy-plugin-appimage-x86_64.AppImage"
+    wget -nv "https://github.com/linuxdeploy/linuxdeploy-plugin-appimage/releases/download/continuous/linuxdeploy-plugin-appimage-x86_64.AppImage"
     chmod +x linuxdeploy-plugin-appimage-x86_64.AppImage
 fi
 
 # appimagelint (by TheAssassin) - for validation
 if [ ! -f appimagelint-x86_64.AppImage ]; then
-    wget -q --show-progress "https://github.com/TheAssassin/appimagelint/releases/download/continuous/appimagelint-x86_64.AppImage" || echo "Warning: appimagelint not available, skipping validation"
+    wget -nv "https://github.com/TheAssassin/appimagelint/releases/download/continuous/appimagelint-x86_64.AppImage" || echo "Warning: appimagelint not available, skipping validation"
 fi
 
 cd "${SCRIPT_DIR}"
