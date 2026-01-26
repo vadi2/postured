@@ -36,3 +36,11 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["postured"]
+
+[tool.hatch.build.targets.wheel.sources]
+"postured" = "postured"
+
+[tool.hatch.build]
+artifacts = [
+    "postured/resources/**/*",
+]
