@@ -30,10 +30,11 @@ class PoseWorker(QObject):
     MIN_FRAME_VARIANCE = 20.0  # detect blank frames (e.g. hardware privacy switch)
     MIN_CONFIDENCE = 0.5
 
-    def __init__(self, model_path: Path, camera_index: int):
+    def __init__(self, model_path: Path, camera_index: int, debug: bool = False):
         super().__init__()
         self.model_path = model_path
         self.camera_index = camera_index
+        self.debug = debug
         self._stop_event = threading.Event()
         self.nose_history: deque[float] = deque(maxlen=self.SMOOTHING_WINDOW)
 
@@ -70,12 +71,21 @@ class PoseWorker(QObject):
 
         while not self._stop_event.is_set():
             ret, frame = capture.read()
-            if not ret or frame.std() < self.MIN_FRAME_VARIANCE:
+            frame_variance = frame.std() if ret else 0.0
+            if not ret or frame_variance < self.MIN_FRAME_VARIANCE:
                 consecutive_failures += 1
                 if consecutive_failures >= self.MAX_CONSECUTIVE_FAILURES:
                     if not camera_lost:
                         camera_lost = True
-                        self.error.emit("Camera disconnected or unavailable")
+                        if self.debug:
+                            msg = (
+                                f"Camera disconnected or unavailable "
+                                f"(failures={consecutive_failures}/{self.MAX_CONSECUTIVE_FAILURES}, "
+                                f"variance={frame_variance:.1f}/{self.MIN_FRAME_VARIANCE:.1f})"
+                            )
+                        else:
+                            msg = "Camera disconnected or unavailable"
+                        self.error.emit(msg)
                     self._stop_event.wait(self.RECOVERY_CHECK_INTERVAL_S)
                     # Reopen camera to detect hardware switch recovery
                     capture.release()
@@ -124,10 +134,11 @@ class PoseDetector(QObject):
     camera_error = pyqtSignal(str)
     camera_recovered = pyqtSignal()
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, debug: bool = False):
         super().__init__(parent)
         self.thread: QThread | None = None
         self.worker: PoseWorker | None = None
+        self.debug = debug
         self.model_path = Path(__file__).parent.parent / "resources" / "pose_landmarker_lite.task"
 
     def start(self, camera_index: int = 0):
@@ -135,7 +146,7 @@ class PoseDetector(QObject):
             self.stop()
 
         self.thread = QThread()
-        self.worker = PoseWorker(self.model_path, camera_index)
+        self.worker = PoseWorker(self.model_path, camera_index, self.debug)
         self.worker.moveToThread(self.thread)
 
         self.thread.started.connect(self.worker.run)

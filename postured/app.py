@@ -1,4 +1,5 @@
 import subprocess
+import sys
 
 from PyQt6.QtCore import QObject, pyqtSlot
 from PyQt6.QtWidgets import QApplication
@@ -19,12 +20,21 @@ class Application(QObject):
     HYSTERESIS_FACTOR = 0.5
     DEAD_ZONE = 0.03
 
-    def __init__(self):
+    def __init__(self, debug: bool = False):
         super().__init__()
 
+        self.debug = debug
+        self._last_debug_state: str | None = None
         self.settings = Settings()
 
-        self.pose_detector = PoseDetector(self)
+        if self.debug:
+            self._print_debug("Debug mode enabled")
+            self._print_debug(f"Calibrated: {self.settings.is_calibrated}")
+            self._print_debug(f"Good posture Y: {self.settings.good_posture_y:.4f}")
+            self._print_debug(f"Bad posture Y: {self.settings.bad_posture_y:.4f}")
+            self._print_debug(f"Sensitivity: {self.settings.sensitivity:.2f}")
+
+        self.pose_detector = PoseDetector(self, debug=self.debug)
         self.overlay = Overlay(self)
         self.tray = TrayIcon(self)
         self.calibration: CalibrationWindow | None = None
@@ -70,6 +80,10 @@ class Application(QObject):
         if self._dbus_adaptor:
             self._dbus_adaptor.emit_status_changed()
 
+    def _print_debug(self, message: str):
+        """Print debug message to stderr."""
+        print(f"[postured] {message}", file=sys.stderr, flush=True)
+
     def start_calibration(self):
         if self.is_calibrating:
             return
@@ -96,6 +110,9 @@ class Application(QObject):
         self.settings.bad_posture_y = max_y
         self.settings.is_calibrated = True
         self.settings.sync()
+
+        if self.debug:
+            self._print_debug(f"Calibration complete: good_y={min_y:.4f} bad_y={max_y:.4f} range={max_y - min_y:.4f}")
 
         self._finish_calibration()
         self.tray.set_status("Calibrated")
@@ -138,7 +155,12 @@ class Application(QObject):
         self.consecutive_good_frames = 0
 
         if self.consecutive_no_detection >= self.AWAY_THRESHOLD:
+            if self.debug and self.consecutive_no_detection == self.AWAY_THRESHOLD:
+                self._print_debug(f"AWAY      | no_detect_frames={self.consecutive_no_detection}")
+
             if self.settings.lock_when_away and not self._screen_locked_this_away:
+                if self.debug:
+                    self._print_debug("Locking screen (away)")
                 self._lock_screen()
                 self._screen_locked_this_away = True
 
@@ -178,6 +200,13 @@ class Application(QObject):
                 self.tray.set_status("Slouching")
                 self.tray.set_posture_state('slouching')
 
+                if self.debug:
+                    self._print_debug(
+                        f"SLOUCHING | nose_y={current_y:.4f} slouch={slouch_amount:+.4f} "
+                        f"thresh={threshold:.4f} severity={severity:.2f} opacity={opacity:.2f} "
+                        f"bad_frames={self.consecutive_bad_frames}"
+                    )
+
                 if not was_slouching:
                     self._emit_dbus_status()
         else:
@@ -192,13 +221,28 @@ class Application(QObject):
                 self.tray.set_status("Good posture")
                 self.tray.set_posture_state('good')
 
+                if self.debug and was_slouching:
+                    self._print_debug(
+                        f"GOOD      | nose_y={current_y:.4f} slouch={slouch_amount:+.4f} "
+                        f"thresh={threshold:.4f} good_frames={self.consecutive_good_frames}"
+                    )
+
                 if was_slouching:
                     self._emit_dbus_status()
+
+        # Debug: print continuous tracking info (state changes)
+        if self.debug:
+            current_state = "slouching" if self.is_slouching else "good"
+            if current_state != self._last_debug_state:
+                self._last_debug_state = current_state
+                self._print_debug(f"State changed to: {current_state.upper()}")
 
     @pyqtSlot(bool)
     def _on_enable_toggled(self, enabled: bool):
         self.is_enabled = enabled
         self.tray.set_enabled(enabled)
+        if self.debug:
+            self._print_debug(f"Monitoring {'enabled' if enabled else 'disabled'}")
         if not enabled:
             self.overlay.set_target_opacity(0)
             self.tray.set_status("Disabled")
@@ -212,6 +256,8 @@ class Application(QObject):
     def _on_sensitivity_changed(self, value: float):
         self.settings.sensitivity = value
         self.settings.sync()
+        if self.debug:
+            self._print_debug(f"Sensitivity changed to: {value:.2f}")
 
     @pyqtSlot(int)
     def _on_camera_changed(self, index: int):
@@ -239,10 +285,14 @@ class Application(QObject):
 
     @pyqtSlot(str)
     def _on_camera_error(self, message: str):
+        if self.debug:
+            self._print_debug(f"Camera error: {message}")
         self.tray.set_status(f"Camera error: {message}")
 
     @pyqtSlot()
     def _on_camera_recovered(self):
+        if self.debug:
+            self._print_debug("Camera recovered")
         self.tray.set_status("Monitoring")
 
     def _quit(self):
