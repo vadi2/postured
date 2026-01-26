@@ -9,7 +9,6 @@ class TrayIcon(QObject):
     enable_toggled = pyqtSignal(bool)
     recalibrate_requested = pyqtSignal()
     sensitivity_changed = pyqtSignal(float)
-    dead_zone_changed = pyqtSignal(float)
     camera_changed = pyqtSignal(int)
     lock_when_away_toggled = pyqtSignal(bool)
     quit_requested = pyqtSignal()
@@ -18,12 +17,6 @@ class TrayIcon(QObject):
         ("Low", 0.6),
         ("Medium", 0.85),
         ("High", 1.0),
-    ]
-
-    DEAD_ZONE_OPTIONS = [
-        ("Small", 0.02),
-        ("Medium", 0.03),
-        ("Large", 0.05),
     ]
 
     def __init__(self, parent=None):
@@ -80,18 +73,6 @@ class TrayIcon(QObject):
             sensitivity_menu.addAction(action)
             self.sensitivity_actions.append((action, value))
 
-        dead_zone_menu = self.menu.addMenu("Dead zone")
-        self.dead_zone_actions = []
-        for name, value in self.DEAD_ZONE_OPTIONS:
-            action = QAction(name, dead_zone_menu)
-            action.setCheckable(True)
-            action.setChecked(value == 0.03)  # Default: Medium
-            action.triggered.connect(
-                lambda checked, v=value: self._on_dead_zone_changed(v)
-            )
-            dead_zone_menu.addAction(action)
-            self.dead_zone_actions.append((action, value))
-
         self.menu.addSeparator()
 
         self.lock_away_action = QAction("Lock when away", self.menu)
@@ -112,11 +93,6 @@ class TrayIcon(QObject):
         for action, v in self.sensitivity_actions:
             action.setChecked(v == value)
         self.sensitivity_changed.emit(value)
-
-    def _on_dead_zone_changed(self, value: float):
-        for action, v in self.dead_zone_actions:
-            action.setChecked(v == value)
-        self.dead_zone_changed.emit(value)
 
     def set_status(self, text: str):
         self.status_action.setText(f"Status: {text}")

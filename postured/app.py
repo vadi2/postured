@@ -17,6 +17,7 @@ class Application(QObject):
     FRAME_THRESHOLD = 8
     AWAY_THRESHOLD = 15
     HYSTERESIS_FACTOR = 0.5
+    DEAD_ZONE = 0.03
 
     def __init__(self):
         super().__init__()
@@ -50,7 +51,6 @@ class Application(QObject):
         self.tray.enable_toggled.connect(self._on_enable_toggled)
         self.tray.recalibrate_requested.connect(self.start_calibration)
         self.tray.sensitivity_changed.connect(self._on_sensitivity_changed)
-        self.tray.dead_zone_changed.connect(self._on_dead_zone_changed)
         self.tray.camera_changed.connect(self._on_camera_changed)
         self.tray.lock_when_away_toggled.connect(self._on_lock_away_toggled)
         self.tray.quit_requested.connect(self._quit)
@@ -150,7 +150,7 @@ class Application(QObject):
         # Slouching = nose Y is ABOVE bad_posture_y (lower in frame = higher Y value)
         slouch_amount = current_y - self.settings.bad_posture_y
 
-        base_threshold = self.settings.dead_zone * posture_range * self.settings.sensitivity
+        base_threshold = self.DEAD_ZONE * posture_range * self.settings.sensitivity
 
         # Hysteresis
         enter_threshold = base_threshold
@@ -211,11 +211,6 @@ class Application(QObject):
     @pyqtSlot(float)
     def _on_sensitivity_changed(self, value: float):
         self.settings.sensitivity = value
-        self.settings.sync()
-
-    @pyqtSlot(float)
-    def _on_dead_zone_changed(self, value: float):
-        self.settings.dead_zone = value
         self.settings.sync()
 
     @pyqtSlot(int)

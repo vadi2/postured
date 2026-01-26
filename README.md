@@ -16,6 +16,13 @@ uv pip install .
 postured
 ```
 
+## Settings
+
+Right-click the tray icon to access:
+
+- Sensitivity - affects detection threshold and dim intensity; higher values trigger on smaller posture deviations and dim the screen more
+- Lock when away - lock screen when you step away from the camera
+
 ## D-Bus Interface
 
 Control postured via D-Bus:

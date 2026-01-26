@@ -9,7 +9,6 @@ class Settings:
 
     DEFAULTS = {
         'sensitivity': 0.85,
-        'dead_zone': 0.03,
         'camera_index': 0,
         'lock_when_away': False,
         'good_posture_y': 0.4,
@@ -28,15 +27,6 @@ class Settings:
     @sensitivity.setter
     def sensitivity(self, value: float):
         self._settings.setValue('sensitivity', value)
-
-    @property
-    def dead_zone(self) -> float:
-        value = float(self._settings.value('dead_zone', self.DEFAULTS['dead_zone']))
-        return max(0.01, min(0.2, value))
-
-    @dead_zone.setter
-    def dead_zone(self, value: float):
-        self._settings.setValue('dead_zone', value)
 
     @property
     def camera_index(self) -> int:
