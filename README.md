@@ -1,4 +1,4 @@
-# postured
+# <img src="resources/icons/postured.svg" alt="" width="32"> postured
 
 A Linux app that dims your screen when you slouch. Optionally locks your screen when you step away.
 
