@@ -1,3 +1,5 @@
+import threading
+
 import cv2
 import mediapipe as mp
 from collections import deque
@@ -27,13 +29,11 @@ class PoseWorker(QObject):
         super().__init__()
         self.model_path = model_path
         self.camera_index = camera_index
-        self.running = False
+        self._stop_event = threading.Event()
         self.nose_history: deque[float] = deque(maxlen=self.SMOOTHING_WINDOW)
 
     def run(self):
         """Main loop - runs in background thread."""
-        import time
-
         if not self.model_path.exists():
             self.error.emit(f"Model file not found: {self.model_path}")
             return
@@ -54,13 +54,13 @@ class PoseWorker(QObject):
             landmarker.close()
             return
 
-        self.running = True
+        self._stop_event.clear()
         frame_timestamp = 0
 
-        while self.running:
+        while not self._stop_event.is_set():
             ret, frame = capture.read()
             if not ret:
-                time.sleep(self.FRAME_INTERVAL_S)
+                self._stop_event.wait(self.FRAME_INTERVAL_S)
                 continue
 
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -69,7 +69,7 @@ class PoseWorker(QObject):
             frame_timestamp += int(self.FRAME_INTERVAL_S * 1000)
             results = landmarker.detect_for_video(mp_image, frame_timestamp)
 
-            if results.pose_landmarks and len(results.pose_landmarks) > 0:
+            if results.pose_landmarks:
                 landmarks = results.pose_landmarks[0]
                 nose = landmarks[PoseLandmark.NOSE]
                 smoothed_y = self._smooth(nose.y)
@@ -77,13 +77,13 @@ class PoseWorker(QObject):
             else:
                 self.no_detection.emit()
 
-            time.sleep(self.FRAME_INTERVAL_S)
+            self._stop_event.wait(self.FRAME_INTERVAL_S)
 
         capture.release()
         landmarker.close()
 
     def stop(self):
-        self.running = False
+        self._stop_event.set()
 
     def _smooth(self, raw_y: float) -> float:
         self.nose_history.append(raw_y)
