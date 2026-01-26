@@ -13,10 +13,10 @@ class OverlayWindow(QWidget):
         self.opacity_level = 0.0
 
         self.setWindowFlags(
-            Qt.WindowType.FramelessWindowHint |
-            Qt.WindowType.WindowStaysOnTopHint |
-            Qt.WindowType.Tool |
-            Qt.WindowType.WindowTransparentForInput
+            Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.WindowStaysOnTopHint
+            | Qt.WindowType.Tool
+            | Qt.WindowType.WindowTransparentForInput
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
@@ -40,8 +40,8 @@ class OverlayWindow(QWidget):
 class Overlay(QObject):
     """Manages overlay windows across all monitors."""
 
-    EASE_IN_RATE = 0.015    # Opacity increase per tick (~1/64)
-    EASE_OUT_RATE = 0.047   # Opacity decrease per tick (~3/64)
+    EASE_IN_RATE = 0.015  # Opacity increase per tick (~1/64)
+    EASE_OUT_RATE = 0.047  # Opacity decrease per tick (~3/64)
     TRANSITION_INTERVAL_MS = 33  # ~30 FPS
 
     def __init__(self, parent=None):
@@ -73,13 +73,11 @@ class Overlay(QObject):
 
         if self.current_opacity < self.target_opacity:
             self.current_opacity = min(
-                self.current_opacity + self.EASE_IN_RATE,
-                self.target_opacity
+                self.current_opacity + self.EASE_IN_RATE, self.target_opacity
             )
         else:
             self.current_opacity = max(
-                self.current_opacity - self.EASE_OUT_RATE,
-                self.target_opacity
+                self.current_opacity - self.EASE_OUT_RATE, self.target_opacity
             )
 
         for window in self.windows:

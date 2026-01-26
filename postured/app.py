@@ -112,7 +112,9 @@ class Application(QObject):
         self.settings.sync()
 
         if self.debug:
-            self._print_debug(f"Calibration complete: good_y={min_y:.4f} bad_y={max_y:.4f} range={max_y - min_y:.4f}")
+            self._print_debug(
+                f"Calibration complete: good_y={min_y:.4f} bad_y={max_y:.4f} range={max_y - min_y:.4f}"
+            )
 
         self._finish_calibration()
         self.tray.set_status("Calibrated")
@@ -156,7 +158,9 @@ class Application(QObject):
 
         if self.consecutive_no_detection >= self.AWAY_THRESHOLD:
             if self.debug and self.consecutive_no_detection == self.AWAY_THRESHOLD:
-                self._print_debug(f"AWAY      | no_detect_frames={self.consecutive_no_detection}")
+                self._print_debug(
+                    f"AWAY      | no_detect_frames={self.consecutive_no_detection}"
+                )
 
             if self.settings.lock_when_away and not self._screen_locked_this_away:
                 if self.debug:
@@ -198,7 +202,7 @@ class Application(QObject):
                 self.overlay.set_target_opacity(opacity)
 
                 self.tray.set_status("Slouching")
-                self.tray.set_posture_state('slouching')
+                self.tray.set_posture_state("slouching")
 
                 if self.debug:
                     self._print_debug(
@@ -219,7 +223,7 @@ class Application(QObject):
                 was_slouching = self.is_slouching
                 self.is_slouching = False
                 self.tray.set_status("Good posture")
-                self.tray.set_posture_state('good')
+                self.tray.set_posture_state("good")
 
                 if self.debug and was_slouching:
                     self._print_debug(
@@ -279,7 +283,7 @@ class Application(QObject):
     def _lock_screen(self):
         """Lock the screen using loginctl (Freedesktop standard)."""
         try:
-            subprocess.run(['loginctl', 'lock-session'], check=False)
+            subprocess.run(["loginctl", "lock-session"], check=False)
         except FileNotFoundError:
             pass  # loginctl not available on this system
 
