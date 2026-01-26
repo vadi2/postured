@@ -1,7 +1,11 @@
 """D-Bus service for postured."""
 
+import logging
+
 from PyQt6.QtCore import pyqtSlot, pyqtClassInfo
 from PyQt6.QtDBus import QDBusAbstractAdaptor, QDBusConnection, QDBusMessage
+
+logger = logging.getLogger(__name__)
 
 
 @pyqtClassInfo("D-Bus Interface", "org.postured.Postured1")
@@ -78,17 +82,17 @@ def register_dbus_service(app) -> PosturedDBusAdaptor | None:
     """Register the D-Bus service and return the adaptor."""
     bus = QDBusConnection.sessionBus()
     if not bus.isConnected():
-        print("Warning: Could not connect to session D-Bus")
+        logger.warning("Could not connect to session D-Bus")
         return None
 
     if not bus.registerService("org.postured.Postured"):
-        print("Warning: Could not register D-Bus service (already running?)")
+        logger.warning("Could not register D-Bus service (already running?)")
         return None
 
     adaptor = PosturedDBusAdaptor(app)
 
     if not bus.registerObject("/org/postured/Postured", app):
-        print("Warning: Could not register D-Bus object")
+        logger.warning("Could not register D-Bus object")
         return None
 
     return adaptor
