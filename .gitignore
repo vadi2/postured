@@ -4,3 +4,7 @@ __pycache__/
 .venv/
 dist/
 *.egg-info/
+
+# AppImage build artifacts
+appimage-build/
+*.AppImage

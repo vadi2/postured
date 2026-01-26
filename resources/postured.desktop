@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Postured
+GenericName=Posture Monitor
+Comment=A Linux app that dims your screen when you slouch
+Exec=postured
+Icon=postured
+Terminal=false
+Categories=Utility;Health;
+Keywords=posture;health;webcam;ergonomics;
+StartupNotify=true

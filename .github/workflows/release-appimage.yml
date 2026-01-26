@@ -1,0 +1,69 @@
+name: Build AppImage
+
+on:
+  release:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (e.g., 1.0.0)'
+        required: false
+        default: ''
+
+jobs:
+  build-appimage:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            fuse \
+            libfuse2 \
+            file \
+            wget \
+            librsvg2-bin
+
+      - name: Set version
+        id: version
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" = "release" ]; then
+            # Strip 'v' prefix if present
+            VERSION="${{ github.event.release.tag_name }}"
+            VERSION="${VERSION#v}"
+            echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          else
+            echo "version=dev" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Update version in build script
+        run: |
+          sed -i "s/APP_VERSION=\".*\"/APP_VERSION=\"${{ steps.version.outputs.version }}\"/" ci/build-appimage.sh
+
+      - name: Build AppImage
+        env:
+          CONDA_PLUGINS_AUTO_ACCEPT_TOS: "yes"
+        run: |
+          chmod +x ci/build-appimage.sh
+          ci/build-appimage.sh
+
+      - name: Upload AppImage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: postured-appimage
+          path: postured-*.AppImage
+          if-no-files-found: error
+
+      - name: Upload to Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: postured-*.AppImage
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
