@@ -245,7 +245,11 @@ class Application(QObject):
     def _on_camera_recovered(self):
         self.tray.set_status("Monitoring")
 
-    def _quit(self):
+    def shutdown(self):
+        """Clean up resources for graceful shutdown."""
         self.pose_detector.stop()
         self.overlay.cleanup()
+
+    def _quit(self):
+        self.shutdown()
         QApplication.instance().quit()
