@@ -139,7 +139,7 @@ class PoseDetector(QObject):
         self.thread: QThread | None = None
         self.worker: PoseWorker | None = None
         self.debug = debug
-        self.model_path = Path(__file__).parent.parent / "resources" / "pose_landmarker_lite.task"
+        self.model_path = Path(__file__).parent / "resources" / "pose_landmarker_lite.task"
 
     def start(self, camera_index: int = 0):
         if self.thread is not None:
