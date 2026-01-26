@@ -135,11 +135,15 @@ class TrayIcon(QObject):
 
     def update_cameras(self, cameras: list[tuple[int, str]], current: int):
         self.camera_menu.clear()
+        single_camera = len(cameras) == 1
         for index, name in cameras:
             action = QAction(name, self.camera_menu)
-            action.setCheckable(True)
-            action.setChecked(index == current)
-            action.triggered.connect(
-                lambda checked, i=index: self.camera_changed.emit(i)
-            )
+            if single_camera:
+                action.setEnabled(False)
+            else:
+                action.setCheckable(True)
+                action.setChecked(index == current)
+                action.triggered.connect(
+                    lambda checked, i=index: self.camera_changed.emit(i)
+                )
             self.camera_menu.addAction(action)

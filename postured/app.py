@@ -214,6 +214,8 @@ class Application(QObject):
 
     @pyqtSlot(int)
     def _on_camera_changed(self, index: int):
+        if index == self.settings.camera_index:
+            return
         self.settings.camera_index = index
         self.settings.sync()
         self.pose_detector.stop()

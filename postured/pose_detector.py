@@ -130,10 +130,43 @@ class PoseDetector(QObject):
     @staticmethod
     def available_cameras() -> list[tuple[int, str]]:
         """Return list of (index, name) for available cameras."""
+        import subprocess
+        import re
+
         cameras = []
         for i in range(10):
-            cap = cv2.VideoCapture(i)
-            if cap.isOpened():
-                cameras.append((i, f"Camera {i}"))
-                cap.release()
+            device = f"/dev/video{i}"
+            try:
+                result = subprocess.run(
+                    ["v4l2-ctl", "-d", device, "--all"],
+                    capture_output=True,
+                    text=True,
+                    timeout=2,
+                )
+                if result.returncode != 0:
+                    continue
+
+                output = result.stdout
+                # Check if device has video capture capability (not just metadata)
+                device_caps_match = re.search(
+                    r"Device Caps\s*:.*?\n((?:\t\t.*\n)*)", output
+                )
+                if not device_caps_match:
+                    continue
+                device_caps = device_caps_match.group(1)
+                if "Video Capture" not in device_caps:
+                    continue
+
+                # Extract camera name
+                name_match = re.search(r"Card type\s*:\s*(.+)", output)
+                name = name_match.group(1).strip().rstrip(":") if name_match else f"Camera {i}"
+
+                cameras.append((i, name))
+            except (subprocess.TimeoutExpired, FileNotFoundError):
+                # v4l2-ctl not available, fall back to OpenCV detection
+                cap = cv2.VideoCapture(i)
+                if cap.isOpened():
+                    cameras.append((i, f"Camera {i}"))
+                    cap.release()
+
         return cameras
