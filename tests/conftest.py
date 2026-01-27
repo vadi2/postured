@@ -126,11 +126,3 @@ def mock_qsettings(tmp_path, monkeypatch):
 
     monkeypatch.setattr("PyQt6.QtCore.QSettings", MockQSettings)
     return config_file
-
-
-@pytest.fixture(scope="session")
-def qapp():
-    """Qt application instance via pytest-qt."""
-    # pytest-qt provides this fixture automatically when installed
-    # This is here for documentation; the actual fixture comes from pytest-qt
-    pass
