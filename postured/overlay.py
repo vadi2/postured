@@ -1,3 +1,5 @@
+import sys
+
 from PyQt6.QtWidgets import QWidget, QApplication
 from PyQt6.QtCore import Qt, QTimer, QObject
 from PyQt6.QtGui import QPainter, QColor
@@ -49,6 +51,7 @@ class Overlay(QObject):
         self.windows: list[OverlayWindow] = []
         self.current_opacity = 0.0
         self.target_opacity = 0.0
+        self._debug = getattr(parent, "debug", False) if parent else False
 
         self.transition_timer = QTimer(self)
         self.transition_timer.timeout.connect(self._update_opacity)
@@ -65,12 +68,22 @@ class Overlay(QObject):
 
     def set_target_opacity(self, opacity: float):
         """Set target opacity (0.0 to 1.0). Transition happens smoothly."""
+        old_target = self.target_opacity
         self.target_opacity = max(0.0, min(1.0, opacity))
+        # Log significant target changes (> 0.05)
+        if self._debug and abs(old_target - self.target_opacity) > 0.05:
+            direction = "harder" if self.target_opacity > old_target else "softer"
+            print(
+                f"[postured] OVERLAY   | dimming {direction}: {old_target:.2f} -> {self.target_opacity:.2f}",
+                file=sys.stderr,
+                flush=True,
+            )
 
     def _update_opacity(self):
         if abs(self.current_opacity - self.target_opacity) < 0.001:
             return
 
+        old_opacity = self.current_opacity
         if self.current_opacity < self.target_opacity:
             self.current_opacity = min(
                 self.current_opacity + self.EASE_IN_RATE, self.target_opacity
@@ -79,6 +92,21 @@ class Overlay(QObject):
             self.current_opacity = max(
                 self.current_opacity - self.EASE_OUT_RATE, self.target_opacity
             )
+
+        # Log when dimming starts or stops
+        if self._debug:
+            if old_opacity == 0.0 and self.current_opacity > 0:
+                print(
+                    f"[postured] OVERLAY   | dimming started (target: {self.target_opacity:.2f})",
+                    file=sys.stderr,
+                    flush=True,
+                )
+            elif self.current_opacity == 0.0 and old_opacity > 0:
+                print(
+                    "[postured] OVERLAY   | dimming stopped",
+                    file=sys.stderr,
+                    flush=True,
+                )
 
         for window in self.windows:
             window.set_opacity(self.current_opacity)
