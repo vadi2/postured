@@ -32,6 +32,7 @@ postured = "postured.__main__:main"
 
 [dependency-groups]
 dev = [
+    "pre-commit>=4.0",
     "pytest>=8.0",
     "pytest-cov>=4.0",
     "pytest-qt>=4.4",
