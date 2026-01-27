@@ -6,6 +6,7 @@ fullscreen overlays. Communication happens via stdin/stdout JSON messages.
 
 import json
 import os
+import shutil
 import sys
 
 from PyQt6.QtCore import QObject, QTimer, QProcess
@@ -41,8 +42,35 @@ class LayerShellOverlay(QObject):
 
     def _start_worker(self):
         """Start the layer-shell worker subprocess."""
-        worker_path = os.path.join(os.path.dirname(__file__), "layer_shell_worker.py")
-        self._log(f"Starting worker: {worker_path}")
+        # Find the helper binary (installed or development)
+        helper_name = "postured-layer-shell-helper"
+        helper_paths = [
+            shutil.which(helper_name),  # In PATH (Flatpak/installed)
+            os.path.join(
+                os.path.dirname(__file__),
+                "..",
+                "layer-shell-helper",
+                "build",
+                helper_name,
+            ),
+        ]
+        helper_path = next((p for p in helper_paths if p and os.path.exists(p)), None)
+
+        # Fall back to GTK3 worker if helper not found
+        if not helper_path:
+            worker_path = os.path.join(
+                os.path.dirname(__file__), "layer_shell_worker.py"
+            )
+            if os.path.exists(worker_path):
+                helper_path = "/usr/bin/python3"
+                helper_args = [worker_path]
+                self._log(f"Using GTK3 worker: {worker_path}")
+            else:
+                self._log("Layer-shell helper not found, overlay disabled")
+                return
+        else:
+            helper_args = []
+            self._log(f"Using Qt6 helper: {helper_path}")
 
         self._process = QProcess(self)
         self._process.setProcessChannelMode(
@@ -53,8 +81,7 @@ class LayerShellOverlay(QObject):
         self._process.finished.connect(self._on_finished)
         self._process.errorOccurred.connect(self._on_error)
 
-        # Use system Python for GTK/GObject access (not uv-managed Python)
-        self._process.start("/usr/bin/python3", [worker_path])
+        self._process.start(helper_path, helper_args)
 
     def _on_stdout(self):
         """Handle stdout from worker."""
