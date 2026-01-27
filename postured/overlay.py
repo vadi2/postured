@@ -157,7 +157,10 @@ except (ValueError, ImportError):
         if result.returncode == 0:
             return True, "supported"
         elif result.returncode == 1:
-            return False, "compositor does not support layer-shell protocol (not wlroots-based)"
+            return (
+                False,
+                "compositor does not support layer-shell protocol (not wlroots-based)",
+            )
         else:
             return False, "gir1.2-gtklayershell-0.1 package not installed"
     except subprocess.TimeoutExpired:

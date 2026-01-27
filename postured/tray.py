@@ -96,7 +96,9 @@ class TrayIcon(QObject):
         self.menu.addSeparator()
 
         # GNOME extension install prompt (hidden by default)
-        self.install_extension_action = QAction("Better overlay (install extension)...", self.menu)
+        self.install_extension_action = QAction(
+            "Better overlay (install extension)...", self.menu
+        )
         self.install_extension_action.triggered.connect(self._open_extension_page)
         self.install_extension_action.setVisible(False)
         self.menu.addAction(self.install_extension_action)

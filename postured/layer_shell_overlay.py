@@ -45,7 +45,9 @@ class LayerShellOverlay(QObject):
         self._log(f"Starting worker: {worker_path}")
 
         self._process = QProcess(self)
-        self._process.setProcessChannelMode(QProcess.ProcessChannelMode.SeparateChannels)
+        self._process.setProcessChannelMode(
+            QProcess.ProcessChannelMode.SeparateChannels
+        )
         self._process.readyReadStandardOutput.connect(self._on_stdout)
         self._process.readyReadStandardError.connect(self._on_stderr)
         self._process.finished.connect(self._on_finished)
