@@ -51,9 +51,7 @@ class MockCalibrationState:
     captured_values: list = field(default_factory=list)
     current_nose_y: float = 0.5
 
-    CORNERS: list = field(
-        default_factory=lambda: ["TOP-LEFT", "TOP-RIGHT", "BOTTOM-RIGHT", "BOTTOM-LEFT"]
-    )
+    POSITIONS: list = field(default_factory=lambda: ["TOP", "BOTTOM"])
 
 
 @dataclass

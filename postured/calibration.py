@@ -17,7 +17,7 @@ class CalibrationWindow(QWidget):
     all_calibrations_complete = pyqtSignal()
     calibration_cancelled = pyqtSignal()
 
-    CORNERS = ["TOP-LEFT", "TOP-RIGHT", "BOTTOM-RIGHT", "BOTTOM-LEFT"]
+    POSITIONS = ["TOP", "BOTTOM"]
     MARGIN = 120
 
     def __init__(self, screens_to_calibrate: list[QScreen] | None = None):
@@ -87,16 +87,14 @@ class CalibrationWindow(QWidget):
         """
         self.current_nose_y = y
 
-    def _get_corner_position(self, corner: str) -> QPointF:
+    def _get_target_position(self, position: str) -> QPointF:
         w, h = self.width(), self.height()
         m = self.MARGIN
         positions = {
-            "TOP-LEFT": QPointF(m, m),
-            "TOP-RIGHT": QPointF(w - m, m),
-            "BOTTOM-RIGHT": QPointF(w - m, h - m),
-            "BOTTOM-LEFT": QPointF(m, h - m),
+            "TOP": QPointF(w / 2, m + 100),  # Lower to avoid step indicator text
+            "BOTTOM": QPointF(w / 2, h - m),
         }
-        return positions[corner]
+        return positions[position]
 
     def _animate(self):
         self.pulse_phase += 0.08
@@ -108,9 +106,9 @@ class CalibrationWindow(QWidget):
 
         painter.fillRect(self.rect(), QColor(0, 0, 0, 217))
 
-        if self.current_step < len(self.CORNERS):
-            corner = self.CORNERS[self.current_step]
-            center = self._get_corner_position(corner)
+        if self.current_step < len(self.POSITIONS):
+            position = self.POSITIONS[self.current_step]
+            center = self._get_target_position(position)
             self._draw_pulsing_ring(painter, center)
 
         self._draw_instructions(painter)
@@ -153,7 +151,7 @@ class CalibrationWindow(QWidget):
 
         # Step indicator
         painter.setFont(QFont("Sans", 20))
-        step_text = f"Step {self.current_step + 1} of {len(self.CORNERS)}"
+        step_text = f"Step {self.current_step + 1} of {len(self.POSITIONS)}"
         top_offset = 60 if len(self.screens) > 1 else 50
         painter.drawText(
             self.rect().adjusted(0, top_offset, 0, 0),
@@ -163,8 +161,10 @@ class CalibrationWindow(QWidget):
 
         # Main instruction
         painter.setFont(QFont("Sans", 32, QFont.Weight.DemiBold))
-        if self.current_step < len(self.CORNERS):
-            instruction = f"Look at the {self.CORNERS[self.current_step]} corner"
+        if self.current_step < len(self.POSITIONS):
+            instruction = (
+                f"Look at the {self.POSITIONS[self.current_step]} of your screen"
+            )
         else:
             instruction = "Calibration complete!"
         painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, instruction)
@@ -189,7 +189,7 @@ class CalibrationWindow(QWidget):
         self.captured_values.append(self.current_nose_y)
         self.current_step += 1
 
-        if self.current_step >= len(self.CORNERS):
+        if self.current_step >= len(self.POSITIONS):
             self._complete_current_screen()
 
     def _complete_current_screen(self):
