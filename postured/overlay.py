@@ -222,6 +222,23 @@ def _is_gnome_session() -> bool:
     return "gnome" in desktop
 
 
+def needs_gnome_extension() -> bool:
+    """Check if user should be prompted to install GNOME extension.
+
+    Returns True if on GNOME Wayland without layer-shell support
+    and without the extension installed.
+    """
+    if not _is_wayland_session():
+        return False
+    if not _is_gnome_session():
+        return False
+    if _check_layer_shell()[0]:
+        return False
+    if _check_gnome_extension():
+        return False
+    return True
+
+
 def _check_gnome_extension() -> bool:
     """Check if postured GNOME extension is running."""
     from .gnome_overlay import check_gnome_extension

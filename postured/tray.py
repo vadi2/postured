@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import QSystemTrayIcon, QMenu, QApplication
-from PyQt6.QtGui import QIcon, QAction
-from PyQt6.QtCore import QObject, pyqtSignal
+from PyQt6.QtGui import QIcon, QAction, QDesktopServices
+from PyQt6.QtCore import QObject, pyqtSignal, QUrl
 
 from .settings import get_monitor_id
 
@@ -95,6 +95,14 @@ class TrayIcon(QObject):
 
         self.menu.addSeparator()
 
+        # GNOME extension install prompt (hidden by default)
+        self.install_extension_action = QAction("Better overlay (install extension)...", self.menu)
+        self.install_extension_action.triggered.connect(self._open_extension_page)
+        self.install_extension_action.setVisible(False)
+        self.menu.addAction(self.install_extension_action)
+
+        self.menu.addSeparator()
+
         quit_action = QAction("Quit", self.menu)
         quit_action.triggered.connect(self.quit_requested.emit)
         self.menu.addAction(quit_action)
@@ -180,3 +188,13 @@ class TrayIcon(QObject):
                     lambda checked, i=index: self.camera_changed.emit(i)
                 )
             self.camera_menu.addAction(action)
+
+    def show_gnome_extension_prompt(self, show: bool = True):
+        """Show or hide the GNOME extension install prompt."""
+        self.install_extension_action.setVisible(show)
+
+    def _open_extension_page(self):
+        """Open the GNOME extensions page for postured-overlay."""
+        QDesktopServices.openUrl(
+            QUrl("https://extensions.gnome.org/extension/8010/postured-overlay/")
+        )
