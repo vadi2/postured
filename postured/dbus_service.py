@@ -8,11 +8,11 @@ from PyQt6.QtDBus import QDBusAbstractAdaptor, QDBusConnection, QDBusMessage
 logger = logging.getLogger(__name__)
 
 
-@pyqtClassInfo("D-Bus Interface", "org.postured.Postured1")
+@pyqtClassInfo("D-Bus Interface", "io.github.vadi2.postured1")
 @pyqtClassInfo(
     "D-Bus Introspection",
     """
-<interface name="org.postured.Postured1">
+<interface name="io.github.vadi2.postured1">
   <method name="Pause"/>
   <method name="Resume"/>
   <method name="GetStatus">
@@ -70,8 +70,8 @@ class PosturedDBusAdaptor(QDBusAbstractAdaptor):
         """Emit StatusChanged signal on D-Bus."""
         status = self._build_status_dict()
         msg = QDBusMessage.createSignal(
-            "/org/postured/Postured",
-            "org.postured.Postured1",
+            "/io/github/vadi2/postured",
+            "io.github.vadi2.postured1",
             "StatusChanged",
         )
         msg.setArguments([status])
@@ -85,13 +85,13 @@ def register_dbus_service(app) -> PosturedDBusAdaptor | None:
         logger.warning("Could not connect to session D-Bus")
         return None
 
-    if not bus.registerService("org.postured.Postured"):
+    if not bus.registerService("io.github.vadi2.postured"):
         logger.warning("Could not register D-Bus service (already running?)")
         return None
 
     adaptor = PosturedDBusAdaptor(app)
 
-    if not bus.registerObject("/org/postured/Postured", app):
+    if not bus.registerObject("/io/github/vadi2/postured", app):
         logger.warning("Could not register D-Bus object")
         return None
 
