@@ -11,6 +11,7 @@ from .calibration import CalibrationWindow
 from .tray import TrayIcon
 from .settings import Settings, MonitorCalibration, get_monitor_id
 from .dbus_service import register_dbus_service
+from .screen_lock import ScreenLockMonitor
 
 
 class MonitorDetector:
@@ -140,6 +141,10 @@ class Application(QObject):
 
         self._dbus_adaptor = register_dbus_service(self)
 
+        # Screen lock detection for auto-pause
+        self._screen_lock_monitor = ScreenLockMonitor(self)
+        self._was_enabled_before_lock = False
+
         self._connect_signals()
         self._start()
 
@@ -175,6 +180,9 @@ class Application(QObject):
         app = QApplication.instance()
         app.screenAdded.connect(self._on_screen_added)
         app.screenRemoved.connect(self._on_screen_removed)
+
+        # Screen lock auto-pause
+        self._screen_lock_monitor.screen_locked.connect(self._on_screen_lock_changed)
 
     def _start(self):
         cameras = PoseDetector.available_cameras()
@@ -476,6 +484,22 @@ class Application(QObject):
         self.settings.sync()
         if not enabled:
             self._screen_locked_this_away = False
+
+    @pyqtSlot(bool)
+    def _on_screen_lock_changed(self, is_locked: bool):
+        """Handle screen lock/unlock for auto-pause."""
+        if is_locked:
+            if self.is_enabled and not self.is_calibrating:
+                self._was_enabled_before_lock = True
+                if self.debug:
+                    self._print_debug("Screen locked - pausing monitoring")
+                self.tray.enable_toggled.emit(False)
+        else:
+            if self._was_enabled_before_lock:
+                self._was_enabled_before_lock = False
+                if self.debug:
+                    self._print_debug("Screen unlocked - resuming monitoring")
+                self.tray.enable_toggled.emit(True)
 
     def _lock_screen(self):
         """Lock the screen using loginctl (Freedesktop standard)."""
