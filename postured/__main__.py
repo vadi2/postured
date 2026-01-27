@@ -12,6 +12,7 @@ from .app import Application
 def install_desktop():
     """Install desktop integration files for the current user."""
     resources = Path(__file__).parent / "resources"
+    icons_base = Path.home() / ".local" / "share" / "icons" / "hicolor"
 
     # Install .desktop file
     applications_dir = Path.home() / ".local" / "share" / "applications"
@@ -21,18 +22,27 @@ def install_desktop():
     shutil.copy2(desktop_src, desktop_dest)
     print(f"Installed {desktop_dest}")
 
-    # Install icon
-    icons_dir = (
-        Path.home() / ".local" / "share" / "icons" / "hicolor" / "scalable" / "apps"
-    )
-    icons_dir.mkdir(parents=True, exist_ok=True)
-    icon_src = resources / "icons" / "postured.svg"
-    icon_dest = icons_dir / "postured.svg"
-    shutil.copy2(icon_src, icon_dest)
-    print(f"Installed {icon_dest}")
+    # Install SVG icon
+    scalable_dir = icons_base / "scalable" / "apps"
+    scalable_dir.mkdir(parents=True, exist_ok=True)
+    svg_src = resources / "icons" / "postured.svg"
+    svg_dest = scalable_dir / "postured.svg"
+    shutil.copy2(svg_src, svg_dest)
+    print(f"Installed {svg_dest}")
+
+    # Install PNG icons at standard sizes
+    png_sizes = [16, 22, 24, 32, 48, 64, 128, 256, 512]
+    for size in png_sizes:
+        size_dir = icons_base / f"{size}x{size}" / "apps"
+        size_dir.mkdir(parents=True, exist_ok=True)
+        png_src = resources / "icons" / f"postured-{size}.png"
+        png_dest = size_dir / "postured.png"
+        shutil.copy2(png_src, png_dest)
+        print(f"Installed {png_dest}")
 
     print(
-        "Desktop integration installed. You may need to log out and back in for changes to take effect."
+        "\nDesktop integration installed. "
+        "You may need to log out and back in for changes to take effect."
     )
 
 
