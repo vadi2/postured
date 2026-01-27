@@ -3,8 +3,8 @@
 import logging
 import os
 
-from PyQt6.QtCore import QObject, pyqtSignal
-from PyQt6.QtDBus import QDBusConnection, QDBusInterface, QDBusMessage
+from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
+from PyQt6.QtDBus import QDBusConnection, QDBusInterface
 
 logger = logging.getLogger(__name__)
 
@@ -126,19 +126,19 @@ class ScreenLockMonitor(QObject):
         # Fall back to auto
         return "/org/freedesktop/login1/session/auto"
 
-    def _on_screensaver_active_changed(self, message: QDBusMessage):
+    @pyqtSlot(bool)
+    def _on_screensaver_active_changed(self, is_active: bool):
         """Handle ActiveChanged signal from screensaver."""
-        args = message.arguments()
-        if args:
-            is_locked = bool(args[0])
-            logger.debug(f"Screen lock state changed: {is_locked}")
-            self.screen_locked.emit(is_locked)
+        logger.debug(f"Screen lock state changed: {is_active}")
+        self.screen_locked.emit(is_active)
 
+    @pyqtSlot()
     def _on_logind_lock(self):
         """Handle Lock signal from logind."""
         logger.debug("Screen locked (logind)")
         self.screen_locked.emit(True)
 
+    @pyqtSlot()
     def _on_logind_unlock(self):
         """Handle Unlock signal from logind."""
         logger.debug("Screen unlocked (logind)")
