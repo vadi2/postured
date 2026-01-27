@@ -173,9 +173,8 @@ class Application(QObject):
 
         # Screen hotplug handling
         app = QApplication.instance()
-        if app:
-            app.screenAdded.connect(self._on_screen_added)
-            app.screenRemoved.connect(self._on_screen_removed)
+        app.screenAdded.connect(self._on_screen_added)
+        app.screenRemoved.connect(self._on_screen_removed)
 
     def _start(self):
         cameras = PoseDetector.available_cameras()
