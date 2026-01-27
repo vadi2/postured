@@ -32,7 +32,7 @@ except ValueError:
     )
     sys.exit(1)
 
-from gi.repository import Gtk, Gdk, GLib
+from gi.repository import Gtk, Gdk, GLib  # noqa: E402
 
 
 MAX_OPACITY = 0.85
@@ -182,7 +182,7 @@ def main():
         )
         sys.exit(1)
 
-    worker = LayerShellWorker()
+    _worker = LayerShellWorker()  # noqa: F841 - must stay alive during Gtk.main()
     Gtk.main()
 
 
