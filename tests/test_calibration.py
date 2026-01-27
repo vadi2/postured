@@ -1,6 +1,5 @@
 """Tests for calibration logic."""
 
-
 from conftest import MockCalibrationState
 
 
@@ -25,26 +24,25 @@ class TestCalibrationCalculation:
 
     def test_min_max_avg_calculation(self):
         """Correctly calculates min, max, avg from captured values."""
-        values = [0.3, 0.5, 0.7, 0.4]
+        values = [0.3, 0.7]
 
         min_y, max_y, avg_y = calculate_calibration_result(values)
 
         assert min_y == 0.3
         assert max_y == 0.7
-        assert avg_y == 0.475  # (0.3 + 0.5 + 0.7 + 0.4) / 4
+        assert avg_y == 0.5  # (0.3 + 0.7) / 2
 
     def test_calculation_with_typical_values(self):
         """Test with typical calibration values."""
-        # Looking at corners: top-left, top-right, bottom-right, bottom-left
-        # Top corners = looking up = lower Y
-        # Bottom corners = looking down = higher Y
-        values = [0.35, 0.38, 0.62, 0.58]
+        # Looking at top = looking up = lower Y (good posture)
+        # Looking at bottom = looking down = higher Y (bad posture)
+        values = [0.35, 0.62]
 
         min_y, max_y, avg_y = calculate_calibration_result(values)
 
         assert min_y == 0.35  # Good posture (looking up)
         assert max_y == 0.62  # Bad posture (looking down)
-        assert abs(avg_y - 0.4825) < 0.0001
+        assert abs(avg_y - 0.485) < 0.0001
 
 
 class TestStepProgression:
@@ -65,46 +63,37 @@ class TestStepProgression:
         capture_position(state)
         assert state.current_step == 2
 
-    def test_full_progression_0_to_4(self, mock_calibration_state):
-        """Steps progress from 0 to 4 (complete) over 4 captures."""
+    def test_full_progression_0_to_2(self, mock_calibration_state):
+        """Steps progress from 0 to 2 (complete) over 2 captures."""
         state = mock_calibration_state
 
-        for i in range(4):
+        for i in range(2):
             assert state.current_step == i
             capture_position(state)
 
-        assert state.current_step == 4
+        assert state.current_step == 2
 
 
 class TestValueCapture:
     """Test value capture during calibration."""
 
-    def test_four_values_captured(self, mock_calibration_state):
-        """Four values are captured, one per corner."""
+    def test_two_values_captured(self, mock_calibration_state):
+        """Two values are captured, one per position."""
         state = mock_calibration_state
         state.current_nose_y = 0.35
 
         capture_position(state)
-        state.current_nose_y = 0.38
-        capture_position(state)
         state.current_nose_y = 0.62
         capture_position(state)
-        state.current_nose_y = 0.58
-        capture_position(state)
 
-        assert len(state.captured_values) == 4
-        assert state.captured_values == [0.35, 0.38, 0.62, 0.58]
+        assert len(state.captured_values) == 2
+        assert state.captured_values == [0.35, 0.62]
 
-    def test_corners_list_has_four_entries(self, mock_calibration_state):
-        """CORNERS list contains 4 positions."""
+    def test_positions_list_has_two_entries(self, mock_calibration_state):
+        """POSITIONS list contains 2 positions."""
         state = mock_calibration_state
-        assert len(state.CORNERS) == 4
-        assert state.CORNERS == [
-            "TOP-LEFT",
-            "TOP-RIGHT",
-            "BOTTOM-RIGHT",
-            "BOTTOM-LEFT",
-        ]
+        assert len(state.POSITIONS) == 2
+        assert state.POSITIONS == ["TOP", "BOTTOM"]
 
 
 class TestEdgeCases:
@@ -112,7 +101,7 @@ class TestEdgeCases:
 
     def test_all_same_values(self):
         """Handles case where all captured values are the same."""
-        values = [0.5, 0.5, 0.5, 0.5]
+        values = [0.5, 0.5]
 
         min_y, max_y, avg_y = calculate_calibration_result(values)
 
@@ -122,7 +111,7 @@ class TestEdgeCases:
 
     def test_extreme_values(self):
         """Handles extreme value differences."""
-        values = [0.1, 0.9, 0.1, 0.9]
+        values = [0.1, 0.9]
 
         min_y, max_y, avg_y = calculate_calibration_result(values)
 
