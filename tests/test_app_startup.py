@@ -22,7 +22,19 @@ def mock_camera(monkeypatch):
     )
 
 
-def test_application_startup(qapp, mock_qsettings, mock_camera):
+@pytest.fixture
+def mock_overlay(monkeypatch):
+    """Mock overlay to avoid Qt segfaults in headless CI environments."""
+    mock_overlay_instance = Mock()
+    mock_overlay_instance.set_target_opacity = Mock()
+    mock_overlay_instance.cleanup = Mock()
+    monkeypatch.setattr(
+        "postured.overlay.create_overlay",
+        Mock(return_value=mock_overlay_instance),
+    )
+
+
+def test_application_startup(qapp, mock_qsettings, mock_camera, mock_overlay):
     """Application starts without crashing.
 
     This smoke test catches initialization errors such as:
