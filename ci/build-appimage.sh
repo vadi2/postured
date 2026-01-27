@@ -123,6 +123,55 @@ cd "${BUILD_DIR}"
     --desktop-file "${PROJECT_DIR}/postured/resources/postured.desktop" \
     --icon-file "${PROJECT_DIR}/postured/resources/icons/postured.svg"
 
+# Remove unnecessary files to reduce AppImage size
+# The conda environment includes many dependencies we don't need at runtime
+echo "=== Trimming AppDir to reduce size ==="
+
+CONDA_DIR="${APPDIR}/usr/conda"
+SIZE_BEFORE=$(du -sm "${APPDIR}" | cut -f1)
+
+# Tesseract OCR training data - pulled in by opencv, not used by postured
+rm -rf "${CONDA_DIR}/share/tessdata"
+
+# Development headers - not needed at runtime
+rm -rf "${CONDA_DIR}/include"
+
+# pip's bundled opencv libraries - duplicates conda's opencv
+# opencv-python/opencv-contrib-python bundle their own Qt5, FFmpeg, OpenBLAS
+rm -rf "${CONDA_DIR}/lib/python3.11/site-packages/opencv_contrib_python.libs"
+rm -rf "${CONDA_DIR}/lib/python3.11/site-packages/opencv_python.libs"
+
+# LLVM - pulled in by Mesa for software rendering, not needed
+rm -f "${CONDA_DIR}/lib/libLLVM"*.so*
+
+# Qt5 libraries - we use Qt6 via PyQt6, Qt5 comes from pip's opencv
+find "${CONDA_DIR}" -name "libQt5*.so*" -delete 2>/dev/null || true
+
+# Build tools not needed at runtime
+rm -rf "${CONDA_DIR}/lib/python3.11/site-packages/sipbuild"
+
+# Database clients not used by postured
+rm -rf "${CONDA_DIR}/share/mysql"
+rm -f "${CONDA_DIR}/lib/libmysqlclient"*.so*
+
+# GObject introspection files - not needed at runtime
+rm -rf "${CONDA_DIR}/share/gir-1.0"
+
+# Static libraries (if any remain)
+find "${CONDA_DIR}" -name "*.a" -delete 2>/dev/null || true
+
+# Python bytecode cache (regenerated at runtime)
+find "${CONDA_DIR}" -name "*.pyc" -delete 2>/dev/null || true
+find "${CONDA_DIR}" -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+
+# Strip debug symbols from binaries to reduce size
+echo "=== Stripping binaries ==="
+find "${APPDIR}" -type f -executable -exec strip --strip-unneeded {} \; 2>/dev/null || true
+find "${APPDIR}" -name "*.so*" -exec strip --strip-unneeded {} \; 2>/dev/null || true
+
+SIZE_AFTER=$(du -sm "${APPDIR}" | cut -f1)
+echo "=== Trimming complete: ${SIZE_BEFORE}MB -> ${SIZE_AFTER}MB ==="
+
 # Create the final AppImage
 echo "=== Creating AppImage ==="
 export VERSION="${APP_VERSION}"
