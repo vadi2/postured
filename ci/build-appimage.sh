@@ -136,10 +136,9 @@ rm -rf "${CONDA_DIR}/share/tessdata"
 # Development headers - not needed at runtime
 rm -rf "${CONDA_DIR}/include"
 
-# pip's bundled opencv libraries - duplicates conda's opencv
-# opencv-python/opencv-contrib-python bundle their own Qt5, FFmpeg, OpenBLAS
-rm -rf "${CONDA_DIR}/lib/python3.11/site-packages/opencv_contrib_python.libs"
-rm -rf "${CONDA_DIR}/lib/python3.11/site-packages/opencv_python.libs"
+# NOTE: We cannot remove opencv_contrib_python.libs/opencv_python.libs because
+# mediapipe depends on pip's opencv-python which needs its bundled libraries.
+# This duplicates some libs with conda's opencv but is required for runtime.
 
 # LLVM - pulled in by Mesa for software rendering, not needed
 rm -f "${CONDA_DIR}/lib/libLLVM"*.so*
