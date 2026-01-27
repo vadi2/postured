@@ -1,3 +1,4 @@
+import os
 import sys
 
 from PyQt6.QtWidgets import QWidget, QApplication
@@ -39,8 +40,8 @@ class OverlayWindow(QWidget):
         painter.fillRect(self.rect(), color)
 
 
-class Overlay(QObject):
-    """Manages overlay windows across all monitors."""
+class QtOverlay(QObject):
+    """Manages overlay windows across all monitors using Qt."""
 
     EASE_IN_RATE = 0.015  # Opacity increase per tick (~1/64)
     EASE_OUT_RATE = 0.047  # Opacity decrease per tick (~3/64)
@@ -115,3 +116,134 @@ class Overlay(QObject):
         self.transition_timer.stop()
         for window in self.windows:
             window.close()
+
+
+def _is_wayland_session() -> bool:
+    """Check if running in a Wayland session."""
+    return os.environ.get("XDG_SESSION_TYPE") == "wayland"
+
+
+def _check_layer_shell() -> tuple[bool, str]:
+    """Check if gtk-layer-shell is available and supported by the compositor.
+
+    Returns:
+        Tuple of (is_available, reason_message)
+    """
+    import subprocess
+
+    # Check both library availability AND compositor support
+    # Exit codes: 0 = supported, 1 = compositor doesn't support, 2 = library not installed
+    check_script = """
+import sys
+try:
+    import gi
+    gi.require_version('Gtk', '3.0')
+    gi.require_version('GtkLayerShell', '0.1')
+    from gi.repository import Gtk, GtkLayerShell
+    Gtk.init(None)
+    if GtkLayerShell.is_supported():
+        sys.exit(0)
+    else:
+        sys.exit(1)
+except (ValueError, ImportError):
+    sys.exit(2)
+"""
+    try:
+        result = subprocess.run(
+            ["/usr/bin/python3", "-c", check_script],
+            capture_output=True,
+            timeout=5,
+        )
+        if result.returncode == 0:
+            return True, "supported"
+        elif result.returncode == 1:
+            return (
+                False,
+                "compositor does not support layer-shell protocol (not wlroots-based)",
+            )
+        else:
+            return False, "gir1.2-gtklayershell-0.1 package not installed"
+    except subprocess.TimeoutExpired:
+        return False, "layer-shell check timed out"
+    except FileNotFoundError:
+        return False, "/usr/bin/python3 not found"
+
+
+def create_overlay(parent=None):
+    """Factory function to create the appropriate overlay backend.
+
+    Priority:
+    - X11: QtOverlay
+    - Wayland + wlroots: LayerShellOverlay
+    - Wayland + GNOME (extension installed): GnomeOverlay
+    - Wayland fallback: QtOverlay
+    """
+    debug = getattr(parent, "debug", False) if parent else False
+
+    def log(message: str):
+        if debug:
+            print(f"[postured] OVERLAY   | {message}", file=sys.stderr, flush=True)
+
+    if not _is_wayland_session():
+        log("X11 session detected, using Qt backend")
+        return QtOverlay(parent)
+
+    log("Wayland session detected")
+
+    available, reason = _check_layer_shell()
+    if available:
+        log("layer-shell protocol supported, using layer-shell backend")
+
+        from .layer_shell_overlay import LayerShellOverlay
+
+        return LayerShellOverlay(parent)
+
+    log(f"layer-shell: {reason}")
+
+    # Try GNOME extension (GNOME Wayland)
+    if _check_gnome_extension():
+        log("GNOME extension available, using D-Bus backend")
+
+        from .gnome_overlay import GnomeOverlay
+
+        return GnomeOverlay(parent)
+
+    # Check if running GNOME and suggest extension installation
+    if _is_gnome_session():
+        log(
+            "GNOME detected but extension not installed. "
+            "Install 'Postured Overlay' from https://extensions.gnome.org for proper overlay support"
+        )
+
+    log("Falling back to Qt backend (overlay may not work correctly on Wayland)")
+    return QtOverlay(parent)
+
+
+def _is_gnome_session() -> bool:
+    """Check if running in a GNOME session."""
+    desktop = os.environ.get("XDG_CURRENT_DESKTOP", "").lower()
+    return "gnome" in desktop
+
+
+def needs_gnome_extension() -> bool:
+    """Check if user should be prompted to install GNOME extension.
+
+    Returns True if on GNOME Wayland without layer-shell support
+    and without the extension installed.
+    """
+    if not _is_wayland_session():
+        return False
+    if not _is_gnome_session():
+        return False
+    if _check_layer_shell()[0]:
+        return False
+    if _check_gnome_extension():
+        return False
+    return True
+
+
+def _check_gnome_extension() -> bool:
+    """Check if postured GNOME extension is running."""
+    from .gnome_overlay import check_gnome_extension
+
+    return check_gnome_extension()

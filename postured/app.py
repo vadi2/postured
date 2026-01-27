@@ -6,7 +6,7 @@ from PyQt6.QtGui import QScreen
 from PyQt6.QtWidgets import QApplication
 
 from .pose_detector import PoseDetector
-from .overlay import Overlay
+from .overlay import create_overlay, needs_gnome_extension
 from .calibration import CalibrationWindow
 from .tray import TrayIcon
 from .settings import Settings, MonitorCalibration, get_monitor_id
@@ -126,8 +126,9 @@ class Application(QObject):
             self._print_debug(f"Sensitivity: {self.settings.sensitivity:.2f}")
 
         self.pose_detector = PoseDetector(self, debug=self.debug)
-        self.overlay = Overlay(self)
+        self.overlay = create_overlay(self)
         self.tray = TrayIcon(self)
+        self.tray.show_gnome_extension_prompt(needs_gnome_extension())
         self.calibration: CalibrationWindow | None = None
         self._calibrating_screens: list[QScreen] | None = None
 
@@ -506,7 +507,7 @@ class Application(QObject):
 
         # Update overlay to include new screen
         self.overlay.cleanup()
-        self.overlay = Overlay(self)
+        self.overlay = create_overlay(self)
 
         # Update tray menu
         self._update_tray_calibrations()
@@ -525,7 +526,7 @@ class Application(QObject):
 
         # Update overlay
         self.overlay.cleanup()
-        self.overlay = Overlay(self)
+        self.overlay = create_overlay(self)
 
         # Update tray menu
         self._update_tray_calibrations()
