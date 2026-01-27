@@ -143,8 +143,7 @@ rm -rf "${CONDA_DIR}/include"
 # LLVM - pulled in by Mesa for software rendering, not needed
 rm -f "${CONDA_DIR}/lib/libLLVM"*.so*
 
-# Qt5 libraries - we use Qt6 via PyQt6, Qt5 comes from pip's opencv
-find "${CONDA_DIR}" -name "libQt5*.so*" -delete 2>/dev/null || true
+# NOTE: Cannot remove Qt5 libraries - pip's opencv-python is built with Qt5 GUI support
 
 # Build tools not needed at runtime
 rm -rf "${CONDA_DIR}/lib/python3.11/site-packages/sipbuild"
