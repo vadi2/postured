@@ -350,10 +350,12 @@ class Application(QObject):
         if calibration:
             good_y = calibration.good_posture_y
             bad_y = calibration.bad_posture_y
+            uncalibrated_suffix = ""
         else:
             # Fallback to global defaults
             good_y = self.settings.DEFAULTS["good_posture_y"]
             bad_y = self.settings.DEFAULTS["bad_posture_y"]
+            uncalibrated_suffix = " (uncalibrated)"
 
         posture_range = abs(bad_y - good_y)
         if posture_range < 0.01:
@@ -387,7 +389,7 @@ class Application(QObject):
                 opacity = 0.03 + eased_severity * 0.97 * self.settings.sensitivity
                 self.overlay.set_target_opacity(opacity)
 
-                self.tray.set_status("Slouching")
+                self.tray.set_status(f"Slouching{uncalibrated_suffix}")
                 self.tray.set_posture_state("slouching")
 
                 if self.debug:
@@ -413,7 +415,7 @@ class Application(QObject):
             if self.consecutive_good_frames >= self.FRAME_THRESHOLD:
                 was_slouching = self.is_slouching
                 self.is_slouching = False
-                self.tray.set_status("Good posture")
+                self.tray.set_status(f"Good posture{uncalibrated_suffix}")
                 self.tray.set_posture_state("good")
 
                 if self.debug and was_slouching:
