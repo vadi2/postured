@@ -6,6 +6,8 @@ A Linux app that dims your screen when you slouch. Optionally locks your screen 
 
 Uses your webcam and MediaPipe pose detection to monitor your posture. When slouching is detected, the screen dims as a reminder to sit up straight. Runs locally with minimal CPU usage - no accounts needed.
 
+![postured showing good posture and slouching states](screenshot.png)
+
 ## Install
 
 ```bash
