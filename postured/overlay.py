@@ -1,3 +1,4 @@
+import os
 import sys
 
 from PyQt6.QtWidgets import QWidget, QApplication
@@ -39,8 +40,8 @@ class OverlayWindow(QWidget):
         painter.fillRect(self.rect(), color)
 
 
-class Overlay(QObject):
-    """Manages overlay windows across all monitors."""
+class QtOverlay(QObject):
+    """Manages overlay windows across all monitors using Qt."""
 
     EASE_IN_RATE = 0.015  # Opacity increase per tick (~1/64)
     EASE_OUT_RATE = 0.047  # Opacity decrease per tick (~3/64)
@@ -115,3 +116,81 @@ class Overlay(QObject):
         self.transition_timer.stop()
         for window in self.windows:
             window.close()
+
+
+def _is_wayland_session() -> bool:
+    """Check if running in a Wayland session."""
+    return os.environ.get("XDG_SESSION_TYPE") == "wayland"
+
+
+def _check_layer_shell() -> tuple[bool, str]:
+    """Check if gtk-layer-shell is available and supported by the compositor.
+
+    Returns:
+        Tuple of (is_available, reason_message)
+    """
+    import subprocess
+
+    # Check both library availability AND compositor support
+    # Exit codes: 0 = supported, 1 = compositor doesn't support, 2 = library not installed
+    check_script = """
+import sys
+try:
+    import gi
+    gi.require_version('Gtk', '3.0')
+    gi.require_version('GtkLayerShell', '0.1')
+    from gi.repository import Gtk, GtkLayerShell
+    Gtk.init(None)
+    if GtkLayerShell.is_supported():
+        sys.exit(0)
+    else:
+        sys.exit(1)
+except (ValueError, ImportError):
+    sys.exit(2)
+"""
+    try:
+        result = subprocess.run(
+            ["/usr/bin/python3", "-c", check_script],
+            capture_output=True,
+            timeout=5,
+        )
+        if result.returncode == 0:
+            return True, "supported"
+        elif result.returncode == 1:
+            return False, "compositor does not support layer-shell protocol (not wlroots-based)"
+        else:
+            return False, "gir1.2-gtklayershell-0.1 package not installed"
+    except subprocess.TimeoutExpired:
+        return False, "layer-shell check timed out"
+    except FileNotFoundError:
+        return False, "/usr/bin/python3 not found"
+
+
+def create_overlay(parent=None):
+    """Factory function to create the appropriate overlay backend.
+
+    Returns LayerShellOverlay for wlroots-based Wayland compositors,
+    QtOverlay for X11, GNOME, or when gtk-layer-shell is unavailable.
+    """
+    debug = getattr(parent, "debug", False) if parent else False
+
+    def log(message: str):
+        if debug:
+            print(f"[postured] OVERLAY   | {message}", file=sys.stderr, flush=True)
+
+    if not _is_wayland_session():
+        log("X11 session detected, using Qt backend")
+        return QtOverlay(parent)
+
+    log("Wayland session detected")
+
+    available, reason = _check_layer_shell()
+    if not available:
+        log(f"{reason}, falling back to Qt backend")
+        return QtOverlay(parent)
+
+    log("layer-shell protocol supported, using layer-shell backend")
+
+    from .layer_shell_overlay import LayerShellOverlay
+
+    return LayerShellOverlay(parent)
