@@ -1,0 +1,8 @@
+{
+  "uuid": "postured-overlay@vadimperetok.in",
+  "name": "Postured Overlay",
+  "description": "Screen dimming overlay controlled via D-Bus. Works with the companion FOSS app postured (https://github.com/vadi2/postured) to help correct your posture. Requires postured to be installed to work.",
+  "shell-version": ["45", "46", "47", "48"],
+  "url": "https://github.com/vadi2/postured",
+  "version": 2
+}

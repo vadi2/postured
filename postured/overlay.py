@@ -169,8 +169,11 @@ except (ValueError, ImportError):
 def create_overlay(parent=None):
     """Factory function to create the appropriate overlay backend.
 
-    Returns LayerShellOverlay for wlroots-based Wayland compositors,
-    QtOverlay for X11, GNOME, or when gtk-layer-shell is unavailable.
+    Priority:
+    - X11: QtOverlay
+    - Wayland + wlroots: LayerShellOverlay
+    - Wayland + GNOME (extension installed): GnomeOverlay
+    - Wayland fallback: QtOverlay
     """
     debug = getattr(parent, "debug", False) if parent else False
 
@@ -185,12 +188,42 @@ def create_overlay(parent=None):
     log("Wayland session detected")
 
     available, reason = _check_layer_shell()
-    if not available:
-        log(f"{reason}, falling back to Qt backend")
-        return QtOverlay(parent)
+    if available:
+        log("layer-shell protocol supported, using layer-shell backend")
 
-    log("layer-shell protocol supported, using layer-shell backend")
+        from .layer_shell_overlay import LayerShellOverlay
 
-    from .layer_shell_overlay import LayerShellOverlay
+        return LayerShellOverlay(parent)
 
-    return LayerShellOverlay(parent)
+    log(f"layer-shell: {reason}")
+
+    # Try GNOME extension (GNOME Wayland)
+    if _check_gnome_extension():
+        log("GNOME extension available, using D-Bus backend")
+
+        from .gnome_overlay import GnomeOverlay
+
+        return GnomeOverlay(parent)
+
+    # Check if running GNOME and suggest extension installation
+    if _is_gnome_session():
+        log(
+            "GNOME detected but extension not installed. "
+            "Install 'Postured Overlay' from https://extensions.gnome.org for proper overlay support"
+        )
+
+    log("Falling back to Qt backend (overlay may not work correctly on Wayland)")
+    return QtOverlay(parent)
+
+
+def _is_gnome_session() -> bool:
+    """Check if running in a GNOME session."""
+    desktop = os.environ.get("XDG_CURRENT_DESKTOP", "").lower()
+    return "gnome" in desktop
+
+
+def _check_gnome_extension() -> bool:
+    """Check if postured GNOME extension is running."""
+    from .gnome_overlay import check_gnome_extension
+
+    return check_gnome_extension()
