@@ -60,7 +60,11 @@ class TrayIcon(QObject):
         )
         self.menu.addAction(self.enable_action)
 
-        # Recalibrate submenu
+        # Recalibrate - simple action for single monitor, submenu for multiple
+        self.recalibrate_action = QAction("Recalibrate", self.menu)
+        self.recalibrate_action.triggered.connect(self.recalibrate_requested.emit)
+        self.menu.addAction(self.recalibrate_action)
+
         self.recalibrate_menu = self.menu.addMenu("Recalibrate")
         self._calibrated_monitors: set[str] = set()
         self._rebuild_recalibrate_menu()
@@ -101,19 +105,26 @@ class TrayIcon(QObject):
         self.sensitivity_changed.emit(value)
 
     def _rebuild_recalibrate_menu(self):
-        """Rebuild the recalibrate submenu with current monitors."""
-        self.recalibrate_menu.clear()
-
-        # "All Monitors" option
-        all_action = QAction("All Monitors", self.recalibrate_menu)
-        all_action.triggered.connect(self.recalibrate_requested.emit)
-        self.recalibrate_menu.addAction(all_action)
-
-        # Get current screens
+        """Rebuild the recalibrate UI based on monitor count."""
         app = QApplication.instance()
         screens = app.screens() if app else []
 
-        if len(screens) > 1:
+        if len(screens) <= 1:
+            # Single monitor: show simple action, hide submenu
+            self.recalibrate_action.setVisible(True)
+            self.recalibrate_menu.menuAction().setVisible(False)
+        else:
+            # Multiple monitors: hide simple action, show submenu
+            self.recalibrate_action.setVisible(False)
+            self.recalibrate_menu.menuAction().setVisible(True)
+
+            self.recalibrate_menu.clear()
+
+            # "All Monitors" option
+            all_action = QAction("All Monitors", self.recalibrate_menu)
+            all_action.triggered.connect(self.recalibrate_requested.emit)
+            self.recalibrate_menu.addAction(all_action)
+
             self.recalibrate_menu.addSeparator()
 
             # Individual monitor options
