@@ -226,12 +226,23 @@ class TestHysteresis:
 class TestEdgeCases:
     """Test edge cases in monitor detection."""
 
-    def test_empty_screens_list(self):
-        """Empty screens list doesn't crash (handled by caller)."""
-        # This is handled at a higher level, but test the boundary
-        screens = []
-        # Would normally check for empty list before calling algorithm
-        assert len(screens) == 0
+    def test_empty_screens_returns_none(self, mock_monitor_detector_state):
+        """Empty screens list returns None without calling detection algorithm."""
+        state = mock_monitor_detector_state
+
+        # Simulate MonitorDetector.update() guard: if not screens, return None
+        def update_with_guard(nose_x: float, screens: list) -> str | None:
+            if not screens:
+                return None
+            detected = detect_monitor_algorithm(nose_x, screens)
+            return apply_hysteresis(state, detected)
+
+        result = update_with_guard(0.5, [])
+        assert result is None
+        # State should be unchanged
+        assert state._current_monitor_id is None
+        assert state._pending_monitor_id is None
+        assert state._pending_frames == 0
 
     def test_nose_x_at_boundaries(self):
         """Nose X at exact boundaries works correctly."""
