@@ -399,18 +399,6 @@ class Application(QObject):
                 self.tray.set_status(f"Slouching{uncalibrated_suffix}")
                 self.tray.set_posture_state("slouching")
 
-                if self.debug:
-                    monitor_info = (
-                        f"monitor={self.current_monitor_id}"
-                        if self.current_monitor_id
-                        else "monitor=default"
-                    )
-                    self._print_debug(
-                        f"SLOUCHING | {monitor_info} nose_y={current_y:.4f} slouch={slouch_amount:+.4f} "
-                        f"thresh={threshold:.4f} severity={severity:.2f} opacity={opacity:.2f} "
-                        f"bad_frames={self.consecutive_bad_frames}"
-                    )
-
                 if not was_slouching:
                     self._emit_dbus_status()
         else:
@@ -425,21 +413,10 @@ class Application(QObject):
                 self.tray.set_status(f"Good posture{uncalibrated_suffix}")
                 self.tray.set_posture_state("good")
 
-                if self.debug and was_slouching:
-                    monitor_info = (
-                        f"monitor={self.current_monitor_id}"
-                        if self.current_monitor_id
-                        else "monitor=default"
-                    )
-                    self._print_debug(
-                        f"GOOD      | {monitor_info} nose_y={current_y:.4f} slouch={slouch_amount:+.4f} "
-                        f"thresh={threshold:.4f} good_frames={self.consecutive_good_frames}"
-                    )
-
                 if was_slouching:
                     self._emit_dbus_status()
 
-        # Debug: print continuous tracking info (state changes)
+        # Debug: only print state transitions
         if self.debug:
             current_state = "slouching" if self.is_slouching else "good"
             if current_state != self._last_debug_state:
