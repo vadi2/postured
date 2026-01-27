@@ -4,7 +4,10 @@
   <name>Postured</name>
   <summary>Dims your screen when you slouch</summary>
   <metadata_license>CC0-1.0</metadata_license>
-  <project_license>MIT</project_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <developer id="io.github.vadi2">
+    <name>Vadim Peretokin</name>
+  </developer>
   <description>
     <p>Postured monitors your posture through your webcam and dims
     the screen when you slouch, encouraging better ergonomics.</p>
@@ -19,6 +22,29 @@
   </screenshots>
   <content_rating type="oars-1.1"/>
   <releases>
+    <release version="1.2.0" date="2026-01-27">
+      <description>
+        <p>New features:</p>
+        <ul>
+          <li>Flatpak packaging support</li>
+          <li>Better screen darkening on Wayland via GNOME extension</li>
+          <li>Simplified calibration from 4 corners to 2 positions</li>
+          <li>Auto-pause on screen lock</li>
+        </ul>
+        <p>Bug fixes:</p>
+        <ul>
+          <li>Fixed HiDPI screenshot blur</li>
+          <li>Fixed AppImage crash from missing opencv libs</li>
+          <li>Fixed screen lock D-Bus signal handlers</li>
+        </ul>
+        <p>Improvements:</p>
+        <ul>
+          <li>Reduced AppImage size by trimming unnecessary files</li>
+          <li>PNG icons at standard Linux sizes</li>
+          <li>Debug logging for screen dimming</li>
+        </ul>
+      </description>
+    </release>
     <release version="1.1.0" date="2026-01-27"/>
   </releases>
   <requires>

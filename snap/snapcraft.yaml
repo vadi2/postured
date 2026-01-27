@@ -1,0 +1,93 @@
+name: postured
+version: '1.2.0'
+summary: A Linux app that dims your screen when you slouch
+description: |
+  Uses your webcam and MediaPipe pose detection to monitor your posture.
+  When slouching is detected, the screen dims as a reminder to sit up straight.
+  Runs locally with minimal CPU usage - no accounts needed.
+
+  Features:
+  - Adjustable sensitivity for detection threshold and dim intensity
+  - Optional screen lock when you step away from the camera
+  - D-Bus interface for pause/resume and status queries
+
+grade: stable
+confinement: strict
+base: core24
+
+platforms:
+  amd64:
+    build-on: [amd64]
+    build-for: [amd64]
+
+apps:
+  postured:
+    command: bin/postured
+    plugs:
+      - home
+      - camera
+      - desktop
+      - desktop-legacy
+      - wayland
+      - x11
+      - opengl
+      - network
+      - screen-inhibit-control
+    slots:
+      - dbus-postured
+    environment:
+      LD_LIBRARY_PATH: $SNAP/usr/lib/x86_64-linux-gnu:$SNAP/usr/lib:$LD_LIBRARY_PATH
+      QT_PLUGIN_PATH: $SNAP/lib/python3.12/site-packages/PyQt6/Qt6/plugins
+      QT_QPA_PLATFORM_PLUGIN_PATH: $SNAP/lib/python3.12/site-packages/PyQt6/Qt6/plugins/platforms
+      OPENCV_LOG_LEVEL: ERROR
+      QT_DEBUG_PLUGINS: 0
+
+slots:
+  dbus-postured:
+    interface: dbus
+    bus: session
+    name: org.postured.Postured
+
+parts:
+  postured:
+    plugin: python
+    source: .
+    python-packages:
+      - PyQt6>=6.6.0
+      - mediapipe>=0.10.0
+      - opencv-python-headless>=4.8.0
+    stage-packages:
+      - libgl1
+      - libglib2.0-0
+      - libsm6
+      - libxext6
+      - libxrender1
+      - libxcb-cursor0
+      - libxcb-icccm4
+      - libxcb-keysyms1
+      - libxcb-shape0
+      - libxkbcommon0
+      - libdbus-1-3
+      - libegl1
+      - libfontconfig1
+      - libfreetype6
+      - libxcb-xinerama0
+      - libxcb-xinput0
+    override-prime: |
+      craftctl default
+      # Remove OpenCV's Qt plugins to avoid conflicts with PyQt6
+      rm -rf $CRAFT_PRIME/lib/python3.12/site-packages/cv2/qt
+      # Install desktop file
+      mkdir -p $CRAFT_PRIME/meta/gui
+      install -Dm644 $CRAFT_PART_SRC/postured/resources/postured.desktop $CRAFT_PRIME/meta/gui/postured.desktop
+      # Install icon
+      mkdir -p $CRAFT_PRIME/meta/gui/icons/hicolor/scalable/apps
+      cp $CRAFT_PART_SRC/postured/resources/icons/postured.svg $CRAFT_PRIME/meta/gui/icons/hicolor/scalable/apps/
+
+  desktop-file:
+    plugin: dump
+    source: postured/resources
+    organize:
+      postured.desktop: share/applications/postured.desktop
+      icons/postured.svg: share/icons/hicolor/scalable/apps/postured.svg
+      icons/postured-256.png: share/icons/hicolor/256x256/apps/postured.png
