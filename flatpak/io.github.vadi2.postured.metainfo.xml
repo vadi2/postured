@@ -17,7 +17,8 @@
   <url type="bugtracker">https://github.com/vadi2/postured/issues</url>
   <screenshots>
     <screenshot type="default">
-      <image>https://raw.githubusercontent.com/vadi2/postured/main/screenshot.png</image>
+      <image>https://raw.githubusercontent.com/vadi2/postured/v1.2.0/screenshot.png</image>
+      <caption>Good posture and slouching detection states</caption>
     </screenshot>
   </screenshots>
   <content_rating type="oars-1.1"/>
@@ -45,7 +46,11 @@
         </ul>
       </description>
     </release>
-    <release version="1.1.0" date="2026-01-27"/>
+    <release version="1.1.0" date="2026-01-27">
+      <description>
+        <p>Initial feature-complete release with posture monitoring, screen dimming, and system tray integration.</p>
+      </description>
+    </release>
   </releases>
   <requires>
     <display_length compare="ge">360</display_length>

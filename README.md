@@ -56,4 +56,4 @@ Inspired by [posturr](https://github.com/tldev/posturr) - check it out if you're
 
 ## License
 
-MIT
+GPL-3.0-or-later
