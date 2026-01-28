@@ -1,5 +1,5 @@
 name: postured
-version: '1.2.0'
+version: '1.3.0'
 summary: A Linux app that dims your screen when you slouch
 description: |
   Uses your webcam and MediaPipe pose detection to monitor your posture.

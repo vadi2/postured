@@ -42,8 +42,13 @@ modules:
   - name: postured-layer-shell-helper
     buildsystem: cmake-ninja
     sources:
-      - type: dir
-        path: ../layer-shell-helper
+      - type: git
+        url: https://github.com/vadi2/postured.git
+        tag: v1.3.0
+        x-checker-data:
+          type: git
+          tag-pattern: ^v([\d.]+)$
+    subdir: layer-shell-helper
 
   # Main application
   - name: postured
@@ -61,5 +66,9 @@ modules:
       # Install license
       - install -Dm644 LICENSE /app/share/licenses/io.github.vadi2.postured/LICENSE
     sources:
-      - type: dir
-        path: ..
+      - type: git
+        url: https://github.com/vadi2/postured.git
+        tag: v1.3.0
+        x-checker-data:
+          type: git
+          tag-pattern: ^v([\d.]+)$
