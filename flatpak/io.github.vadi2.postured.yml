@@ -58,6 +58,8 @@ modules:
       - for size in 16 22 24 32 48 64 128 256 512; do install -Dm644 postured/resources/icons/postured-$size.png /app/share/icons/hicolor/${size}x${size}/apps/io.github.vadi2.postured.png; done
       # Install metainfo
       - install -Dm644 flatpak/io.github.vadi2.postured.metainfo.xml /app/share/metainfo/io.github.vadi2.postured.metainfo.xml
+      # Install license
+      - install -Dm644 LICENSE /app/share/licenses/io.github.vadi2.postured/LICENSE
     sources:
       - type: dir
         path: ..

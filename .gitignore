@@ -8,3 +8,11 @@ dist/
 # AppImage build artifacts
 appimage-build/
 *.AppImage
+
+# Flatpak build artifacts
+repo/
+builddir/
+.flatpak-builder/
+
+# Test coverage
+.coverage
