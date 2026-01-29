@@ -16,6 +16,7 @@ class TrayIcon(QObject):
     sensitivity_changed = pyqtSignal(float)
     camera_changed = pyqtSignal(int)
     lock_when_away_toggled = pyqtSignal(bool)
+    notification_mode_changed = pyqtSignal(str)  # "dim_screen" or "led_blink"
     quit_requested = pyqtSignal()
 
     SENSITIVITY_OPTIONS = [
@@ -94,6 +95,23 @@ class TrayIcon(QObject):
         self.menu.addAction(self.lock_away_action)
 
         self.menu.addSeparator()
+
+        # Notification mode options (mutually exclusive)
+        self.dim_screen_action = QAction("Dim screen when slouching", self.menu)
+        self.dim_screen_action.setCheckable(True)
+        self.dim_screen_action.setChecked(True)
+        self.dim_screen_action.triggered.connect(
+            lambda: self._on_notification_mode_changed("dim_screen")
+        )
+        self.menu.addAction(self.dim_screen_action)
+
+        self.led_blink_action = QAction("Blink LED when slouching", self.menu)
+        self.led_blink_action.setCheckable(True)
+        self.led_blink_action.setChecked(False)
+        self.led_blink_action.triggered.connect(
+            lambda: self._on_notification_mode_changed("led_blink")
+        )
+        self.menu.addAction(self.led_blink_action)
 
         # GNOME extension install prompt (hidden by default)
         self.install_extension_action = QAction(
@@ -200,3 +218,14 @@ class TrayIcon(QObject):
         QDesktopServices.openUrl(
             QUrl("https://extensions.gnome.org/extension/8010/postured-overlay/")
         )
+
+    def _on_notification_mode_changed(self, mode: str):
+        """Handle notification mode radio button selection."""
+        self.dim_screen_action.setChecked(mode == "dim_screen")
+        self.led_blink_action.setChecked(mode == "led_blink")
+        self.notification_mode_changed.emit(mode)
+
+    def set_notification_mode(self, mode: str):
+        """Update notification mode checkbox states."""
+        self.dim_screen_action.setChecked(mode == "dim_screen")
+        self.led_blink_action.setChecked(mode == "led_blink")

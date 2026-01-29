@@ -12,6 +12,7 @@ from .tray import TrayIcon
 from .settings import Settings, MonitorCalibration, get_monitor_id
 from .dbus_service import register_dbus_service
 from .screen_lock import ScreenLockMonitor
+from .led_blinker import LedBlinker
 
 
 class MonitorDetector:
@@ -126,6 +127,9 @@ class Application(QObject):
             self._print_debug(f"Sensitivity: {self.settings.sensitivity:.2f}")
 
         self.pose_detector = PoseDetector(self, debug=self.debug)
+        self.led_blinker = LedBlinker(
+            self.pose_detector, self.settings.camera_index, self
+        )
         self.overlay = create_overlay(self)
         self.tray = TrayIcon(self)
         self.tray.show_gnome_extension_prompt(needs_gnome_extension())
@@ -175,6 +179,7 @@ class Application(QObject):
         self.tray.sensitivity_changed.connect(self._on_sensitivity_changed)
         self.tray.camera_changed.connect(self._on_camera_changed)
         self.tray.lock_when_away_toggled.connect(self._on_lock_away_toggled)
+        self.tray.notification_mode_changed.connect(self._on_notification_mode_changed)
         self.tray.quit_requested.connect(self._quit)
 
         # Screen hotplug handling
@@ -199,6 +204,7 @@ class Application(QObject):
                     self._print_debug(f"Migrated legacy calibration to {primary_id}")
 
         self._update_tray_calibrations()
+        self.tray.set_notification_mode(self.settings.notification_mode)
         self.pose_detector.start(self.settings.camera_index)
 
         if not self.settings.has_any_calibration():
@@ -389,24 +395,28 @@ class Application(QObject):
                 was_slouching = self.is_slouching
                 self.is_slouching = True
 
-                # Calculate blur intensity
-                severity = (slouch_amount - enter_threshold) / posture_range
-                severity = max(0.0, min(1.0, severity))
-                eased_severity = severity * severity  # Quadratic ease-in
+                if self.settings.notification_mode == "dim_screen":
+                    # Calculate blur intensity
+                    severity = (slouch_amount - enter_threshold) / posture_range
+                    severity = max(0.0, min(1.0, severity))
+                    eased_severity = severity * severity  # Quadratic ease-in
 
-                opacity = 0.03 + eased_severity * 0.97 * self.settings.sensitivity
-                self.overlay.set_target_opacity(opacity)
+                    opacity = 0.03 + eased_severity * 0.97 * self.settings.sensitivity
+                    self.overlay.set_target_opacity(opacity)
 
                 self.tray.set_status(f"Slouching{uncalibrated_suffix}")
                 self.tray.set_posture_state("slouching")
 
                 if not was_slouching:
                     self._emit_dbus_status()
+                    if self.settings.notification_mode == "led_blink":
+                        self.led_blinker.on_slouching_started()
         else:
             self.consecutive_good_frames += 1
             self.consecutive_bad_frames = 0
 
-            self.overlay.set_target_opacity(0)
+            if self.settings.notification_mode == "dim_screen":
+                self.overlay.set_target_opacity(0)
 
             if self.consecutive_good_frames >= self.FRAME_THRESHOLD:
                 was_slouching = self.is_slouching
@@ -416,6 +426,8 @@ class Application(QObject):
 
                 if was_slouching:
                     self._emit_dbus_status()
+                    if self.settings.notification_mode == "led_blink":
+                        self.led_blinker.on_slouching_stopped()
 
         # Debug: only print state transitions
         if self.debug:
@@ -452,6 +464,7 @@ class Application(QObject):
             return
         self.settings.camera_index = index
         self.settings.sync()
+        self.led_blinker.set_camera_index(index)
         self.pose_detector.stop()
         self.pose_detector.start(index)
         self.start_calibration()
@@ -462,6 +475,14 @@ class Application(QObject):
         self.settings.sync()
         if not enabled:
             self._screen_locked_this_away = False
+
+    @pyqtSlot(str)
+    def _on_notification_mode_changed(self, mode: str):
+        self.settings.notification_mode = mode
+        self.settings.sync()
+        # Clear overlay when switching to LED blink mode
+        if mode == "led_blink":
+            self.overlay.set_target_opacity(0)
 
     @pyqtSlot(bool)
     def _on_screen_lock_changed(self, is_locked: bool):

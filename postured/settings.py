@@ -32,6 +32,7 @@ class Settings:
         "sensitivity": 0.85,
         "camera_index": 0,
         "lock_when_away": False,
+        "notification_mode": "dim_screen",  # "dim_screen" or "led_blink"
         "good_posture_y": 0.4,
         "bad_posture_y": 0.6,
         "is_calibrated": False,
@@ -67,6 +68,19 @@ class Settings:
     @lock_when_away.setter
     def lock_when_away(self, value: bool):
         self._settings.setValue("lock_when_away", value)
+
+    @property
+    def notification_mode(self) -> str:
+        value = self._settings.value(
+            "notification_mode", self.DEFAULTS["notification_mode"]
+        )
+        if value not in ("dim_screen", "led_blink"):
+            return self.DEFAULTS["notification_mode"]
+        return value
+
+    @notification_mode.setter
+    def notification_mode(self, value: str):
+        self._settings.setValue("notification_mode", value)
 
     @property
     def good_posture_y(self) -> float:
