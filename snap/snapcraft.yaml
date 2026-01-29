@@ -1,13 +1,14 @@
 name: postured
-version: '1.3.0'
-summary: A Linux app that dims your screen when you slouch
+version: '1.4.0'
+summary: A Linux app that lets you know when you slouch
 description: |
   Uses your webcam and MediaPipe pose detection to monitor your posture.
-  When slouching is detected, the screen dims as a reminder to sit up straight.
+  When slouching is detected, you get notified to sit up straight.
   Runs locally with minimal CPU usage - no accounts needed.
 
   Features:
-  - Adjustable sensitivity for detection threshold and dim intensity
+  - Choose notification style: screen dimming or LED blink
+  - Adjustable sensitivity for detection threshold
   - Optional screen lock when you step away from the camera
   - D-Bus interface for pause/resume and status queries
 

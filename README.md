@@ -1,10 +1,10 @@
 # <img src="postured/resources/icons/postured.svg" alt="" width="32"> postured
 
-A Linux app that dims your screen when you slouch. Optionally locks your screen when you step away.
+A Linux app that lets you know when you slouch. Optionally locks your screen when you step away.
 
 (join our community) [![Matrix](https://img.shields.io/badge/Matrix-%23postured-000000?logo=matrix&logoColor=white)](https://matrix.to/#/#postured:matrix.org)
 
-Uses your webcam and MediaPipe pose detection to monitor your posture. When slouching is detected, the screen dims as a reminder to sit up straight. Runs locally with minimal CPU usage - no accounts needed.
+Uses your webcam and MediaPipe pose detection to monitor your posture. When slouching is detected, you get notified to sit up straight (screen dimming or LED blink). Runs locally with minimal CPU usage - no accounts needed.
 
 <img src="screenshot.png" alt="postured showing good posture and slouching states" width="500">
 
@@ -23,7 +23,8 @@ Requires [notifications support](https://extensions.gnome.org/extension/615/appi
 
 Right-click the tray icon to access:
 
-- Sensitivity - affects detection threshold and dim intensity; higher values trigger on smaller posture deviations and dim the screen more
+- Notification style - choose between screen dimming or LED blink
+- Sensitivity - affects detection threshold; higher values trigger on smaller posture deviations
 - Lock when away - lock screen when you step away from the camera
 
 ## D-Bus Interface

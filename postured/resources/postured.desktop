@@ -2,7 +2,7 @@
 Type=Application
 Name=Postured
 GenericName=Posture Monitor
-Comment=A Linux app that dims your screen when you slouch
+Comment=A Linux app that lets you know when you slouch
 Exec=postured
 Icon=io.github.vadi2.postured
 Terminal=false

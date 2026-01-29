@@ -2,27 +2,33 @@
 <component type="desktop-application">
   <id>io.github.vadi2.postured</id>
   <name>Postured</name>
-  <summary>Dims your screen when you slouch</summary>
+  <summary>Lets you know when you slouch</summary>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>GPL-3.0-or-later</project_license>
   <developer id="io.github.vadi2">
     <name>Vadim Peretokin</name>
   </developer>
   <description>
-    <p>Postured monitors your posture through your webcam and dims
-    the screen when you slouch, encouraging better ergonomics.</p>
+    <p>Postured monitors your posture through your webcam and notifies
+    you when you slouch, encouraging better ergonomics. Choose between
+    screen dimming or LED blink notifications.</p>
   </description>
   <launchable type="desktop-id">io.github.vadi2.postured.desktop</launchable>
   <url type="homepage">https://github.com/vadi2/postured</url>
   <url type="bugtracker">https://github.com/vadi2/postured/issues</url>
   <screenshots>
     <screenshot type="default">
-      <image>https://raw.githubusercontent.com/vadi2/postured/v1.3.1/screenshot.png</image>
+      <image>https://raw.githubusercontent.com/vadi2/postured/v1.4.0/screenshot.png</image>
       <caption>Good posture and slouching detection states</caption>
     </screenshot>
   </screenshots>
   <content_rating type="oars-1.1"/>
   <releases>
+    <release version="1.4.0" date="2026-01-29">
+      <description>
+        <p>Add LED blink notification option for posture alerts.</p>
+      </description>
+    </release>
     <release version="1.3.1" date="2026-01-29">
       <description>
         <p>Use Flatpak app ID for desktop icon.</p>
