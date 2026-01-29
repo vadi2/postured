@@ -1,7 +1,6 @@
 """Tests for Settings class."""
 
 
-
 def test_default_sensitivity(mock_qsettings):
     """Default sensitivity is returned when no config exists."""
     from postured.settings import Settings
@@ -24,6 +23,26 @@ def test_default_lock_when_away(mock_qsettings):
 
     settings = Settings()
     assert settings.lock_when_away is False
+
+
+def test_default_notification_mode(mock_qsettings):
+    """Default notification_mode is dim_screen."""
+    from postured.settings import Settings
+
+    settings = Settings()
+    assert settings.notification_mode == "dim_screen"
+
+
+def test_notification_mode_validates(mock_qsettings):
+    """Invalid notification_mode falls back to default."""
+    from postured.settings import Settings
+
+    settings = Settings()
+    settings.notification_mode = "invalid_value"
+    settings.sync()
+
+    settings2 = Settings()
+    assert settings2.notification_mode == "dim_screen"
 
 
 def test_default_posture_values(mock_qsettings):
