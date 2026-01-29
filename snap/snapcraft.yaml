@@ -1,5 +1,5 @@
 name: postured
-version: '1.4.0'
+version: '1.4.1'
 summary: A Linux app that lets you know when you slouch
 description: |
   Uses your webcam and MediaPipe pose detection to monitor your posture.

@@ -1,6 +1,6 @@
 [project]
 name = "postured"
-version = "1.4.0"
+version = "1.4.1"
 description = "A Linux app that lets you know when you slouch"
 readme = "README.md"
 requires-python = ">=3.11"

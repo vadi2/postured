@@ -18,12 +18,17 @@
   <url type="bugtracker">https://github.com/vadi2/postured/issues</url>
   <screenshots>
     <screenshot type="default">
-      <image>https://raw.githubusercontent.com/vadi2/postured/v1.4.0/screenshot.png</image>
+      <image>https://raw.githubusercontent.com/vadi2/postured/v1.4.1/screenshot.png</image>
       <caption>Good posture and slouching detection states</caption>
     </screenshot>
   </screenshots>
   <content_rating type="oars-1.1"/>
   <releases>
+    <release version="1.4.1" date="2026-01-29">
+      <description>
+        <p>Sync tray UI with saved settings on startup.</p>
+      </description>
+    </release>
     <release version="1.4.0" date="2026-01-29">
       <description>
         <p>Add LED blink notification option for posture alerts.</p>

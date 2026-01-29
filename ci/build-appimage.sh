@@ -5,7 +5,7 @@
 set -e
 
 APP_NAME="postured"
-APP_VERSION="1.1.0"
+APP_VERSION="1.4.1"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 BUILD_DIR="${SCRIPT_DIR}/appimage-build"

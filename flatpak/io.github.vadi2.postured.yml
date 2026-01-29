@@ -40,7 +40,7 @@ modules:
     sources:
       - type: git
         url: https://github.com/vadi2/postured.git
-        tag: v1.4.0
+        tag: v1.4.1
         x-checker-data:
           type: git
           tag-pattern: ^v([\d.]+)$
@@ -57,7 +57,7 @@ modules:
     sources:
       - type: git
         url: https://github.com/vadi2/postured.git
-        tag: v1.4.0
+        tag: v1.4.1
         x-checker-data:
           type: git
           tag-pattern: ^v([\d.]+)$
