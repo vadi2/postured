@@ -225,6 +225,15 @@ class TrayIcon(QObject):
         self.led_blink_action.setChecked(mode == "led_blink")
         self.notification_mode_changed.emit(mode)
 
+    def set_lock_when_away(self, enabled: bool):
+        """Update the lock when away checkbox state."""
+        self.lock_away_action.setChecked(enabled)
+
+    def set_sensitivity(self, value: float):
+        """Update the sensitivity radio button selection."""
+        for action, v in self.sensitivity_actions:
+            action.setChecked(v == value)
+
     def set_notification_mode(self, mode: str):
         """Update notification mode checkbox states."""
         self.dim_screen_action.setChecked(mode == "dim_screen")

@@ -204,6 +204,8 @@ class Application(QObject):
                     self._print_debug(f"Migrated legacy calibration to {primary_id}")
 
         self._update_tray_calibrations()
+        self.tray.set_sensitivity(self.settings.sensitivity)
+        self.tray.set_lock_when_away(self.settings.lock_when_away)
         self.tray.set_notification_mode(self.settings.notification_mode)
         self.pose_detector.start(self.settings.camera_index)
 
