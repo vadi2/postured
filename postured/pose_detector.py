@@ -205,6 +205,10 @@ class PoseDetector(QObject):
         for i in range(10):
             device = f"/dev/video{i}"
 
+            # Skip if device doesn't exist
+            if not os.path.exists(device):
+                continue
+
             sysfs_device = f"/sys/class/video4linux/video{i}/device"
             if os.path.islink(sysfs_device):
                 physical_device = os.path.realpath(sysfs_device)
