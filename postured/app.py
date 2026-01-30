@@ -556,7 +556,7 @@ class Application(QObject):
 
     def shutdown(self):
         """Clean up resources for graceful shutdown."""
-        self.pose_detector.stop()
+        self.pose_detector.close()
         self.overlay.cleanup()
 
     def _quit(self):
