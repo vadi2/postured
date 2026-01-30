@@ -197,10 +197,21 @@ class PoseDetector(QObject):
         """Return list of (index, name) for available cameras."""
         import subprocess
         import re
+        import os
 
         cameras = []
+        seen_devices = set()
+
         for i in range(10):
             device = f"/dev/video{i}"
+
+            sysfs_device = f"/sys/class/video4linux/video{i}/device"
+            if os.path.islink(sysfs_device):
+                physical_device = os.path.realpath(sysfs_device)
+                if physical_device in seen_devices:
+                    continue
+                seen_devices.add(physical_device)
+
             try:
                 result = subprocess.run(
                     ["v4l2-ctl", "-d", device, "--all"],
@@ -222,7 +233,6 @@ class PoseDetector(QObject):
                 if "Video Capture" not in device_caps:
                     continue
 
-                # Extract camera name
                 name_match = re.search(r"Card type\s*:\s*(.+)", output)
                 name = (
                     name_match.group(1).strip().rstrip(":")
@@ -235,7 +245,15 @@ class PoseDetector(QObject):
                 # v4l2-ctl not available, fall back to OpenCV detection
                 cap = cv2.VideoCapture(i)
                 if cap.isOpened():
-                    cameras.append((i, f"Camera {i}"))
+                    name = f"Camera {i}"
+                    name_path = f"/sys/class/video4linux/video{i}/name"
+                    if os.path.exists(name_path):
+                        try:
+                            with open(name_path) as f:
+                                name = f.read().strip().rstrip(":")
+                        except OSError:
+                            pass
+                    cameras.append((i, name))
                     cap.release()
 
         return cameras
