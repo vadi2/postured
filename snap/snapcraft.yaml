@@ -41,7 +41,7 @@ apps:
       QT_PLUGIN_PATH: $SNAP/lib/python3.12/site-packages/PyQt6/Qt6/plugins
       QT_QPA_PLATFORM_PLUGIN_PATH: $SNAP/lib/python3.12/site-packages/PyQt6/Qt6/plugins/platforms
       OPENCV_LOG_LEVEL: ERROR
-      QT_DEBUG_PLUGINS: 0
+      QT_DEBUG_PLUGINS: 1
 
 slots:
   dbus-postured:
@@ -57,6 +57,7 @@ parts:
       - PyQt6>=6.6.0
       - mediapipe>=0.10.0
       - opencv-python-headless>=4.8.0
+      - opencv-contrib-python-headless>=4.8.0
     stage-packages:
       - libgl1
       - libglib2.0-0
@@ -77,7 +78,8 @@ parts:
     override-prime: |
       craftctl default
       # Remove OpenCV's Qt plugins to avoid conflicts with PyQt6
-      rm -rf $CRAFT_PRIME/lib/python3.12/site-packages/cv2/qt
+      find $CRAFT_PRIME -path "*/cv2/qt*" -type d -exec rm -rf {} + 2>/dev/null || true
+      rm -rf $CRAFT_PRIME/lib/python*/site-packages/cv2/qt 2>/dev/null || true
       # Install desktop file
       mkdir -p $CRAFT_PRIME/meta/gui
       install -Dm644 $CRAFT_PART_SRC/postured/resources/postured.desktop $CRAFT_PRIME/meta/gui/postured.desktop
