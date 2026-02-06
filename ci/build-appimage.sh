@@ -58,17 +58,17 @@ mkdir -p "${APPDIR}/usr/share/icons/hicolor/scalable/apps"
 mkdir -p "${APPDIR}/usr/share/icons/hicolor/256x256/apps"
 
 cp "${PROJECT_DIR}/postured/resources/postured.desktop" "${APPDIR}/usr/share/applications/"
-cp "${PROJECT_DIR}/postured/resources/icons/postured.svg" "${APPDIR}/usr/share/icons/hicolor/scalable/apps/"
+cp "${PROJECT_DIR}/postured/resources/icons/postured.svg" "${APPDIR}/usr/share/icons/hicolor/scalable/apps/io.github.vadi2.postured.svg"
 
 # Convert SVG to PNG for compatibility (if rsvg-convert is available)
 if command -v rsvg-convert &> /dev/null; then
     rsvg-convert -w 256 -h 256 "${PROJECT_DIR}/postured/resources/icons/postured.svg" \
-        -o "${APPDIR}/usr/share/icons/hicolor/256x256/apps/postured.png"
+        -o "${APPDIR}/usr/share/icons/hicolor/256x256/apps/io.github.vadi2.postured.png"
 fi
 
 # Root level links (required by AppImage spec)
 cp "${PROJECT_DIR}/postured/resources/postured.desktop" "${APPDIR}/"
-cp "${PROJECT_DIR}/postured/resources/icons/postured.svg" "${APPDIR}/postured.svg"
+cp "${PROJECT_DIR}/postured/resources/icons/postured.svg" "${APPDIR}/io.github.vadi2.postured.svg"
 
 # Create the AppRun script OUTSIDE the AppDir (linuxdeploy will copy it in)
 # Note: --custom-apprun source must not be inside the AppDir, or linuxdeploy
@@ -121,7 +121,7 @@ cd "${BUILD_DIR}"
     --plugin conda \
     --custom-apprun "${APPRUN_FILE}" \
     --desktop-file "${PROJECT_DIR}/postured/resources/postured.desktop" \
-    --icon-file "${PROJECT_DIR}/postured/resources/icons/postured.svg"
+    --icon-file "${APPDIR}/usr/share/icons/hicolor/scalable/apps/io.github.vadi2.postured.svg"
 
 # Remove unnecessary files to reduce AppImage size
 # The conda environment includes many dependencies we don't need at runtime
