@@ -25,6 +25,7 @@ jobs:
           files: flatpak/io.github.vadi2.postured.yml
           upload-pages-artifact: true
           upload-bundles: true
+          flatpak-builder-args: --install-deps-from=flathub
 
   deploy:
     name: Deploy to GitHub Pages
