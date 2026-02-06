@@ -1,4 +1,4 @@
-name: Flatpak Repository
+name: Self-hosted flatpak repository
 
 on:
   release:
