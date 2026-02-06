@@ -168,8 +168,9 @@ class TrayIcon(QObject):
 
                 action = QAction(label, self.recalibrate_menu)
                 action.triggered.connect(
-                    lambda checked,
-                    mid=monitor_id: self.recalibrate_monitor_requested.emit(mid)
+                    lambda checked, mid=monitor_id: (
+                        self.recalibrate_monitor_requested.emit(mid)
+                    )
                 )
                 self.recalibrate_menu.addAction(action)
 
