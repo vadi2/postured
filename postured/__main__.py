@@ -56,6 +56,12 @@ def main():
         help="Enable debug mode to show tracking information",
     )
     parser.add_argument(
+        "--preview",
+        "-p",
+        action="store_true",
+        help="Open live posture monitor and detection tuning window",
+    )
+    parser.add_argument(
         "--install-desktop",
         action="store_true",
         help="Install desktop integration files",
@@ -81,6 +87,8 @@ def main():
         sys.exit(1)
 
     postured = Application(debug=args.debug)
+    if args.preview:
+        postured.show_preview_window()
 
     # Set up Unix signal handling for graceful shutdown.
     # Python's set_wakeup_fd() writes the signal number to a fd when a signal

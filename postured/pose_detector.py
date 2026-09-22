@@ -1,3 +1,4 @@
+import math
 import threading
 import time
 
@@ -19,16 +20,24 @@ from mediapipe.tasks.python.vision import (
 class PoseWorker(QObject):
     """Worker that runs pose detection in a background thread."""
 
-    pose_detected = pyqtSignal(float, float)  # nose_y, nose_x
+    pose_detected = pyqtSignal(
+        float, float, float, bool, float, float, str, float, float, str, str
+    )  # nose_y, nose_x, forward_offset, shoulders_detected, scale_ratio, neck_v_ratio, view_mode, side_forward, cva_deg, active_side, facing_dir
+    preview_frame = pyqtSignal(object, object)  # (rgb_frame: np.ndarray, landmarks)
     no_detection = pyqtSignal()
     error = pyqtSignal(str)
     recovered = pyqtSignal()
 
     SMOOTHING_WINDOW = 5
-    FRAME_INTERVAL_S = 0.1  # 10 FPS
-    MAX_CONSECUTIVE_FAILURES = 30  # ~3 seconds before reporting camera lost
+    FRAME_INTERVAL_S = 0.25  # 4 FPS
+    AWAY_FRAME_INTERVAL_S = 1.5  # Backoff polling interval when away
+    AWAY_THRESHOLD = 15  # Consecutive no-detection frames before backing off
+    MAX_CONSECUTIVE_FAILURES = 12  # ~3 seconds before reporting camera lost
     RECOVERY_CHECK_INTERVAL_S = 2.0
     MIN_FRAME_VARIANCE = 20.0  # detect blank frames (e.g. hardware privacy switch)
+    VARIANCE_STRIDE = 16  # Subsample stride for fast variance computation
+    CAMERA_WIDTH = 640
+    CAMERA_HEIGHT = 480
     MIN_CONFIDENCE = 0.5
 
     def __init__(
@@ -38,24 +47,51 @@ class PoseWorker(QObject):
         self.landmarker = landmarker
         self.camera_index = camera_index
         self.debug = debug
+        self.enable_preview = False
+        self.camera_view_mode = "auto"  # "auto", "front", "side"
         self._stop_event = threading.Event()
         self.nose_y_history: deque[float] = deque(maxlen=self.SMOOTHING_WINDOW)
         self.nose_x_history: deque[float] = deque(maxlen=self.SMOOTHING_WINDOW)
+        self.forward_history: deque[float] = deque(maxlen=self.SMOOTHING_WINDOW)
+        self.scale_history: deque[float] = deque(maxlen=self.SMOOTHING_WINDOW)
+        self.neck_v_history: deque[float] = deque(maxlen=self.SMOOTHING_WINDOW)
+        self.side_forward_history: deque[float] = deque(maxlen=self.SMOOTHING_WINDOW)
+        self.cva_history: deque[float] = deque(maxlen=self.SMOOTHING_WINDOW)
+        self.view_mode_history: deque[str] = deque(maxlen=7)
+
+    def set_view_mode(self, mode: str):
+        self.camera_view_mode = mode
+
+    def set_preview_enabled(self, enabled: bool):
+        self.enable_preview = enabled
+
+    def _create_capture(self, camera_index: int) -> cv2.VideoCapture:
+        """Create and configure camera capture with capped resolution."""
+        capture = cv2.VideoCapture(camera_index)
+        if capture.isOpened():
+            capture.set(cv2.CAP_PROP_FRAME_WIDTH, self.CAMERA_WIDTH)
+            capture.set(cv2.CAP_PROP_FRAME_HEIGHT, self.CAMERA_HEIGHT)
+        return capture
 
     def run(self):
         """Main loop - runs in background thread."""
-        capture = cv2.VideoCapture(self.camera_index)
+        capture = self._create_capture(self.camera_index)
         if not capture.isOpened():
             self.error.emit("Failed to open camera")
             return
 
         self._stop_event.clear()
         consecutive_failures = 0
+        consecutive_no_detection = 0
         camera_lost = False
 
         while not self._stop_event.is_set():
             ret, frame = capture.read()
-            frame_variance = frame.std() if ret else 0.0
+            frame_variance = (
+                frame[:: self.VARIANCE_STRIDE, :: self.VARIANCE_STRIDE].std()
+                if ret and frame is not None
+                else 0.0
+            )
             if not ret or frame_variance < self.MIN_FRAME_VARIANCE:
                 consecutive_failures += 1
                 if consecutive_failures >= self.MAX_CONSECUTIVE_FAILURES:
@@ -73,7 +109,7 @@ class PoseWorker(QObject):
                     self._stop_event.wait(self.RECOVERY_CHECK_INTERVAL_S)
                     # Reopen camera to detect hardware switch recovery
                     capture.release()
-                    capture = cv2.VideoCapture(self.camera_index)
+                    capture = self._create_capture(self.camera_index)
                 else:
                     self._stop_event.wait(self.FRAME_INTERVAL_S)
                 continue
@@ -90,15 +126,181 @@ class PoseWorker(QObject):
             results = self.landmarker.detect_for_video(mp_image, frame_timestamp)
 
             if results.pose_landmarks:
+                consecutive_no_detection = 0
                 landmarks = results.pose_landmarks[0]
                 nose = landmarks[PoseLandmark.NOSE]
                 smoothed_y = self._smooth_y(nose.y)
                 smoothed_x = self._smooth_x(nose.x)
-                self.pose_detected.emit(smoothed_y, smoothed_x)
-            else:
-                self.no_detection.emit()
 
-            self._stop_event.wait(self.FRAME_INTERVAL_S)
+                # Head-to-shoulder forward posture calculation
+                left_shoulder = landmarks[PoseLandmark.LEFT_SHOULDER]
+                right_shoulder = landmarks[PoseLandmark.RIGHT_SHOULDER]
+                left_ear = landmarks[PoseLandmark.LEFT_EAR]
+                right_ear = landmarks[PoseLandmark.RIGHT_EAR]
+
+                ls_vis = (
+                    left_shoulder.visibility
+                    if left_shoulder.visibility is not None
+                    else 1.0
+                )
+                rs_vis = (
+                    right_shoulder.visibility
+                    if right_shoulder.visibility is not None
+                    else 1.0
+                )
+                le_vis = (
+                    left_ear.visibility if left_ear.visibility is not None else 1.0
+                )
+                re_vis = (
+                    right_ear.visibility if right_ear.visibility is not None else 1.0
+                )
+
+                # In side view, one shoulder may be occluded by neck/torso,
+                # so detecting at least one shoulder with confidence is enough
+                shoulders_detected = (ls_vis >= 0.35 and rs_vis >= 0.35) or (
+                    ls_vis >= 0.5 or rs_vis >= 0.5
+                )
+
+                forward_offset = 0.0
+                scale_ratio = 0.0
+                neck_v_ratio = 0.0
+                view_mode = "front"
+                side_forward = 0.0
+                cva_deg = 90.0
+                active_side = "right"
+                facing_dir = "left"
+
+                if shoulders_detected:
+                    shoulder_dx = abs(left_shoulder.x - right_shoulder.x)
+                    shoulder_dy = abs(left_shoulder.y - right_shoulder.y)
+                    shoulder_span = math.hypot(shoulder_dx, shoulder_dy)
+                    if shoulder_span < 0.05:
+                        shoulder_span = 0.2
+
+                    shoulder_z_diff = abs(left_shoulder.z - right_shoulder.z)
+
+                    # Determine view orientation
+                    if self.camera_view_mode == "side":
+                        view_mode = "side"
+                    elif self.camera_view_mode == "front":
+                        view_mode = "front"
+                    else:
+                        # Auto mode: side if depth disparity between shoulders is large (>0.25)
+                        # or horizontal shoulder span is strongly compressed (<0.60 of 2D span)
+                        # or ear visibility is strongly asymmetric (>0.35 difference)
+                        raw_is_side = (
+                            (shoulder_z_diff > 0.25)
+                            or (shoulder_dx / max(0.01, shoulder_span) < 0.60)
+                            or (abs(re_vis - le_vis) > 0.35)
+                        )
+                        self.view_mode_history.append("side" if raw_is_side else "front")
+                        view_mode = (
+                            "side"
+                            if self.view_mode_history.count("side") > len(self.view_mode_history) / 2
+                            else "front"
+                        )
+
+                    # 1. Front View Calculations
+                    shoulder_z = (left_shoulder.z + right_shoulder.z) / 2.0
+                    if le_vis >= 0.4 and re_vis >= 0.4:
+                        head_z = (left_ear.z + right_ear.z) / 2.0
+                        head_span = math.hypot(
+                            left_ear.x - right_ear.x, left_ear.y - right_ear.y
+                        )
+                        head_mid_y = (left_ear.y + right_ear.y) / 2.0
+                    elif le_vis >= 0.4:
+                        head_z = left_ear.z
+                        head_span = 0.45 * shoulder_span
+                        head_mid_y = left_ear.y
+                    elif re_vis >= 0.4:
+                        head_z = right_ear.z
+                        head_span = 0.45 * shoulder_span
+                        head_mid_y = right_ear.y
+                    else:
+                        head_z = nose.z - 0.15 * shoulder_span
+                        head_span = 0.45 * shoulder_span
+                        head_mid_y = nose.y
+
+                    raw_forward_offset = (shoulder_z - head_z) / shoulder_span
+                    forward_offset = self._smooth_forward(raw_forward_offset)
+
+                    shoulder_mid_y = (left_shoulder.y + right_shoulder.y) / 2.0
+                    raw_scale_ratio = head_span / shoulder_span
+                    raw_neck_v_ratio = (shoulder_mid_y - head_mid_y) / shoulder_span
+
+                    scale_ratio = self._smooth_scale(raw_scale_ratio)
+                    neck_v_ratio = self._smooth_neck_v(raw_neck_v_ratio)
+
+                    # 2. Side View Calculations
+                    # Identify active camera-facing side (closer in Z or higher visibility)
+                    if (
+                        right_shoulder.z > left_shoulder.z + 0.15
+                        or rs_vis > ls_vis + 0.2
+                    ):
+                        active_side = "right"
+                        active_shoulder = right_shoulder
+                        active_ear = right_ear if re_vis >= 0.3 else nose
+                    elif (
+                        left_shoulder.z > right_shoulder.z + 0.15
+                        or ls_vis > rs_vis + 0.2
+                    ):
+                        active_side = "left"
+                        active_shoulder = left_shoulder
+                        active_ear = left_ear if le_vis >= 0.3 else nose
+                    else:
+                        if re_vis >= le_vis:
+                            active_side = "right"
+                            active_shoulder = right_shoulder
+                            active_ear = right_ear if re_vis >= 0.3 else nose
+                        else:
+                            active_side = "left"
+                            active_shoulder = left_shoulder
+                            active_ear = left_ear if le_vis >= 0.3 else nose
+
+                    # Facing direction: camera on Right -> user looking at desk is facing Left
+                    facing_factor = -1.0 if active_side == "right" else +1.0
+                    facing_dir = "left" if facing_factor < 0 else "right"
+
+                    neck_v = max(0.08, active_shoulder.y - active_ear.y)
+                    plumb_dx = (active_ear.x - active_shoulder.x) * facing_factor
+                    raw_side_forward = plumb_dx / neck_v
+                    side_forward = self._smooth_side_forward(raw_side_forward)
+
+                    raw_cva = math.degrees(
+                        math.atan2(
+                            active_shoulder.y - active_ear.y,
+                            max(0.001, abs(active_ear.x - active_shoulder.x)),
+                        )
+                    )
+                    cva_deg = self._smooth_cva(raw_cva)
+
+                self.pose_detected.emit(
+                    smoothed_y,
+                    smoothed_x,
+                    forward_offset,
+                    shoulders_detected,
+                    scale_ratio,
+                    neck_v_ratio,
+                    view_mode,
+                    side_forward,
+                    cva_deg,
+                    active_side,
+                    facing_dir,
+                )
+                if self.enable_preview:
+                    self.preview_frame.emit(rgb_frame, landmarks)
+            else:
+                consecutive_no_detection += 1
+                self.no_detection.emit()
+                if self.enable_preview:
+                    self.preview_frame.emit(rgb_frame, None)
+
+            interval = (
+                self.AWAY_FRAME_INTERVAL_S
+                if consecutive_no_detection >= self.AWAY_THRESHOLD
+                else self.FRAME_INTERVAL_S
+            )
+            self._stop_event.wait(interval)
 
         capture.release()
 
@@ -113,13 +315,34 @@ class PoseWorker(QObject):
         self.nose_x_history.append(raw_x)
         return sum(self.nose_x_history) / len(self.nose_x_history)
 
+    def _smooth_forward(self, raw_forward: float) -> float:
+        self.forward_history.append(raw_forward)
+        return sum(self.forward_history) / len(self.forward_history)
+
+    def _smooth_scale(self, raw_scale: float) -> float:
+        self.scale_history.append(raw_scale)
+        return sum(self.scale_history) / len(self.scale_history)
+
+    def _smooth_neck_v(self, raw_neck_v: float) -> float:
+        self.neck_v_history.append(raw_neck_v)
+        return sum(self.neck_v_history) / len(self.neck_v_history)
+
+    def _smooth_side_forward(self, raw_side: float) -> float:
+        self.side_forward_history.append(raw_side)
+        return sum(self.side_forward_history) / len(self.side_forward_history)
+
+    def _smooth_cva(self, raw_cva: float) -> float:
+        self.cva_history.append(raw_cva)
+        return sum(self.cva_history) / len(self.cva_history)
+
 
 class PoseDetector(QObject):
     """Captures camera frames and detects pose using MediaPipe in a background thread."""
 
     pose_detected = pyqtSignal(
-        float, float
-    )  # nose_y: 0.0 (top) to 1.0 (bottom), nose_x: 0.0 (left) to 1.0 (right)
+        float, float, float, bool, float, float, str, float, float, str, str
+    )  # nose_y, nose_x, forward_offset, shoulders_detected, scale_ratio, neck_v_ratio, view_mode, side_forward, cva_deg, active_side, facing_dir
+    preview_frame = pyqtSignal(object, object)
     no_detection = pyqtSignal()
     camera_error = pyqtSignal(str)
     camera_recovered = pyqtSignal()
@@ -129,6 +352,8 @@ class PoseDetector(QObject):
         self.thread: QThread | None = None
         self.worker: PoseWorker | None = None
         self.debug = debug
+        self._preview_enabled: bool = False
+        self._camera_view_mode: str = "auto"
         self._model_path = (
             Path(__file__).parent / "resources" / "pose_landmarker_lite.task"
         )
@@ -165,15 +390,30 @@ class PoseDetector(QObject):
 
         self.thread = QThread()
         self.worker = PoseWorker(landmarker, camera_index, self.debug)
+        self.worker.set_view_mode(self._camera_view_mode)
         self.worker.moveToThread(self.thread)
 
         self.thread.started.connect(self.worker.run)
         self.worker.pose_detected.connect(self.pose_detected)
+        self.worker.preview_frame.connect(self.preview_frame)
         self.worker.no_detection.connect(self.no_detection)
         self.worker.error.connect(self.camera_error)
         self.worker.recovered.connect(self.camera_recovered)
 
+        if self._preview_enabled:
+            self.worker.set_preview_enabled(True)
+
         self.thread.start()
+
+    def set_view_mode(self, mode: str):
+        self._camera_view_mode = mode
+        if self.worker:
+            self.worker.set_view_mode(mode)
+
+    def set_preview_enabled(self, enabled: bool):
+        self._preview_enabled = enabled
+        if self.worker:
+            self.worker.set_preview_enabled(enabled)
 
     def stop(self):
         if self.worker:

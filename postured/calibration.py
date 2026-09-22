@@ -11,8 +11,8 @@ class CalibrationWindow(QWidget):
 
     # Emitted after each monitor's calibration completes
     calibration_complete = pyqtSignal(
-        str, float, float, float
-    )  # monitor_id, min_y, max_y, avg_y
+        str, float, float, float, float, float, float, float, float
+    )  # monitor_id, min_y, max_y, avg_y, good_forward, good_scale, good_neck, good_side, good_cva
     # Emitted when all monitors are calibrated
     all_calibrations_complete = pyqtSignal()
     calibration_cancelled = pyqtSignal()
@@ -33,7 +33,17 @@ class CalibrationWindow(QWidget):
         self.current_screen_index = 0
         self.current_step = 0
         self.captured_values: list[float] = []
+        self.captured_forward: list[float] = []
+        self.captured_scale: list[float] = []
+        self.captured_neck: list[float] = []
+        self.captured_side: list[float] = []
+        self.captured_cva: list[float] = []
         self.current_nose_y = 0.5
+        self.current_forward_offset: float | None = None
+        self.current_head_scale: float | None = None
+        self.current_neck_ratio: float | None = None
+        self.current_side_forward: float | None = None
+        self.current_cva: float | None = None
         self.pulse_phase = 0.0
 
         self.setWindowFlags(
@@ -78,14 +88,40 @@ class CalibrationWindow(QWidget):
         self.activateWindow()
         self.setFocus()
 
-    def update_nose_y(self, y: float, x: float = 0.0):
+    def update_nose_y(
+        self,
+        y: float,
+        x: float = 0.0,
+        forward_offset: float = 0.0,
+        shoulders_detected: bool = False,
+        scale_ratio: float = 0.40,
+        neck_v_ratio: float = 0.32,
+        view_mode: str = "front",
+        side_forward: float = 0.0,
+        cva_deg: float = 65.0,
+        *args,
+        **kwargs,
+    ):
         """Called by pose detector during calibration.
 
         Args:
             y: Nose Y position (used for calibration)
             x: Nose X position (ignored during calibration)
+            forward_offset: Head forward displacement relative to shoulders
+            shoulders_detected: Whether shoulders are visible
+            scale_ratio: Perspective head scale ratio
+            neck_v_ratio: Vertical neck height ratio
+            view_mode: "front" or "side"
+            side_forward: Side-view horizontal forward displacement
+            cva_deg: Craniovertebral angle in degrees
         """
         self.current_nose_y = y
+        if shoulders_detected:
+            self.current_forward_offset = forward_offset
+            self.current_head_scale = scale_ratio
+            self.current_neck_ratio = neck_v_ratio
+            self.current_side_forward = side_forward
+            self.current_cva = cva_deg
 
     def _get_target_position(self, position: str) -> QPointF:
         w, h = self.width(), self.height()
@@ -187,6 +223,16 @@ class CalibrationWindow(QWidget):
 
     def _capture_position(self):
         self.captured_values.append(self.current_nose_y)
+        if self.current_forward_offset is not None:
+            self.captured_forward.append(self.current_forward_offset)
+        if self.current_head_scale is not None:
+            self.captured_scale.append(self.current_head_scale)
+        if self.current_neck_ratio is not None:
+            self.captured_neck.append(self.current_neck_ratio)
+        if self.current_side_forward is not None:
+            self.captured_side.append(self.current_side_forward)
+        if self.current_cva is not None:
+            self.captured_cva.append(self.current_cva)
         self.current_step += 1
 
         if self.current_step >= len(self.POSITIONS):
@@ -197,10 +243,45 @@ class CalibrationWindow(QWidget):
         min_y = min(self.captured_values)
         max_y = max(self.captured_values)
         avg_y = sum(self.captured_values) / len(self.captured_values)
+        good_forward = (
+            sum(self.captured_forward) / len(self.captured_forward)
+            if self.captured_forward
+            else 0.55
+        )
+        good_scale = (
+            sum(self.captured_scale) / len(self.captured_scale)
+            if self.captured_scale
+            else 0.40
+        )
+        good_neck = (
+            sum(self.captured_neck) / len(self.captured_neck)
+            if self.captured_neck
+            else 0.32
+        )
+        good_side = (
+            sum(self.captured_side) / len(self.captured_side)
+            if self.captured_side
+            else 0.0
+        )
+        good_cva = (
+            sum(self.captured_cva) / len(self.captured_cva)
+            if self.captured_cva
+            else 65.0
+        )
 
         monitor_id = self._current_monitor_id
         if monitor_id:
-            self.calibration_complete.emit(monitor_id, min_y, max_y, avg_y)
+            self.calibration_complete.emit(
+                monitor_id,
+                min_y,
+                max_y,
+                avg_y,
+                good_forward,
+                good_scale,
+                good_neck,
+                good_side,
+                good_cva,
+            )
 
         # Move to next screen
         self.current_screen_index += 1
@@ -208,6 +289,16 @@ class CalibrationWindow(QWidget):
             # Reset for next screen
             self.current_step = 0
             self.captured_values = []
+            self.captured_forward = []
+            self.captured_scale = []
+            self.captured_neck = []
+            self.captured_side = []
+            self.captured_cva = []
+            self.current_forward_offset = None
+            self.current_head_scale = None
+            self.current_neck_ratio = None
+            self.current_side_forward = None
+            self.current_cva = None
             self._move_to_screen(self.screens[self.current_screen_index])
             self.showFullScreen()
             self.activateWindow()
