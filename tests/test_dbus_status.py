@@ -1,6 +1,5 @@
 """Tests for D-Bus status building."""
 
-
 from conftest import MockAppState
 
 
@@ -23,6 +22,7 @@ def build_status_dict(app: MockAppState) -> dict:
         "state": get_state_string(app),
         "enabled": app.is_enabled,
         "is_slouching": app.is_slouching,
+        "profile": getattr(app, "current_profile", "sitting"),
     }
 
 
@@ -131,6 +131,8 @@ class TestBuildStatusDict:
         assert "state" in result
         assert "enabled" in result
         assert "is_slouching" in result
+        assert "profile" in result
+        assert result["profile"] == "sitting"
 
     def test_dict_values_match_state(self, mock_app_state):
         """Dict values correctly reflect application state."""

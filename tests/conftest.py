@@ -30,6 +30,11 @@ class MockAppState:
     AWAY_THRESHOLD: int = 15
     HYSTERESIS_FACTOR: float = 0.5
     DEAD_ZONE: float = 0.03
+    FORWARD_THRESHOLD_BASE: float = 0.07
+    good_forward_offset: float = 0.55
+    good_head_scale: float = 0.40
+    good_neck_ratio: float = 0.32
+    current_profile: str = "sitting"
 
 
 @dataclass
@@ -123,4 +128,10 @@ def mock_qsettings(tmp_path, monkeypatch):
             super().__init__(str(config_file), original_qsettings.Format.IniFormat)
 
     monkeypatch.setattr("PyQt6.QtCore.QSettings", MockQSettings)
+    try:
+        import postured.settings
+
+        monkeypatch.setattr("postured.settings.QSettings", MockQSettings)
+    except (ImportError, AttributeError):
+        pass
     return config_file

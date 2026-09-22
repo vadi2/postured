@@ -363,3 +363,42 @@ class TestMonitorCalibration:
 
         assert result.good_posture_y == 0.30
         assert result.bad_posture_y == 0.70
+
+    def test_camera_view_mode_default_and_persistence(self, mock_qsettings):
+        """Camera view mode defaults to 'auto' and persists changes."""
+        from postured.settings import Settings
+
+        settings = Settings()
+        assert settings.camera_view_mode == "auto"
+
+        settings.camera_view_mode = "side"
+        settings.sync()
+
+        settings2 = Settings()
+        assert settings2.camera_view_mode == "side"
+
+        # Invalid mode falls back to auto
+        settings2.camera_view_mode = "invalid_mode"
+        assert settings2.camera_view_mode == "auto"
+
+    def test_monitor_calibration_side_metrics(self, mock_qsettings):
+        """Monitor calibration saves and loads good_side_forward and good_cva."""
+        from postured.settings import Settings, MonitorCalibration
+
+        settings = Settings()
+        cal = MonitorCalibration(
+            monitor_id="SIDE-MONITOR_1920x1080",
+            good_posture_y=0.35,
+            bad_posture_y=0.65,
+            is_calibrated=True,
+            good_side_forward=0.03,
+            good_cva=72.5,
+        )
+        settings.set_monitor_calibration(cal)
+        settings.sync()
+
+        settings2 = Settings()
+        loaded = settings2.get_monitor_calibration("SIDE-MONITOR_1920x1080")
+        assert loaded is not None
+        assert abs(loaded.good_side_forward - 0.03) < 0.001
+        assert abs(loaded.good_cva - 72.5) < 0.1

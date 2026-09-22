@@ -18,6 +18,13 @@ logger = logging.getLogger(__name__)
   <method name="GetStatus">
     <arg type="a{sv}" direction="out" name="status"/>
   </method>
+  <method name="GetProfile">
+    <arg type="s" direction="out" name="profile"/>
+  </method>
+  <method name="SetProfile">
+    <arg type="s" direction="in" name="profile"/>
+  </method>
+  <method name="ShowPreview"/>
   <signal name="StatusChanged">
     <arg type="a{sv}" name="status"/>
   </signal>
@@ -47,6 +54,7 @@ class PosturedDBusAdaptor(QDBusAbstractAdaptor):
             "state": self._get_state_string(),
             "enabled": self._app.is_enabled,
             "is_slouching": self._app.is_slouching,
+            "profile": getattr(self._app.settings, "current_profile", "sitting"),
         }
 
     @pyqtSlot()
@@ -65,6 +73,23 @@ class PosturedDBusAdaptor(QDBusAbstractAdaptor):
     def GetStatus(self) -> dict:
         """Return current status as a dict."""
         return self._build_status_dict()
+
+    @pyqtSlot(result=str)
+    def GetProfile(self) -> str:
+        """Return the active posture profile (e.g. 'sitting' or 'standing')."""
+        return getattr(self._app.settings, "current_profile", "sitting")
+
+    @pyqtSlot(str)
+    def SetProfile(self, profile: str):
+        """Set the active posture profile ('sitting' or 'standing')."""
+        if hasattr(self._app, "set_profile"):
+            self._app.set_profile(profile)
+
+    @pyqtSlot()
+    def ShowPreview(self):
+        """Display the live posture monitor and tuning window."""
+        if hasattr(self._app, "show_preview_window"):
+            self._app.show_preview_window()
 
     def emit_status_changed(self):
         """Emit StatusChanged signal on D-Bus."""
