@@ -23,3 +23,7 @@ stage/
 build-dir/
 .craft/
 *.snap
+
+# Claude Code personal files (may hold secrets)
+**/.claude/settings.local.json
+CLAUDE.local.md
