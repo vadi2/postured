@@ -1,29 +1,18 @@
-from PyQt6.QtWidgets import QSystemTrayIcon, QMenu, QApplication
-from PyQt6.QtGui import QIcon, QAction, QDesktopServices
-from PyQt6.QtCore import QObject, pyqtSignal, QUrl
-
-from .settings import get_monitor_id
+from PyQt6.QtCore import QObject, QUrl, pyqtSignal
+from PyQt6.QtGui import QAction, QDesktopServices, QIcon
+from PyQt6.QtWidgets import QMenu, QSystemTrayIcon
 
 
 class TrayIcon(QObject):
     """System tray icon with menu."""
 
     enable_toggled = pyqtSignal(bool)
-    recalibrate_requested = pyqtSignal()  # Recalibrate all monitors
-    recalibrate_monitor_requested = pyqtSignal(
-        str
-    )  # Recalibrate specific monitor by ID
-    sensitivity_changed = pyqtSignal(float)
     camera_changed = pyqtSignal(int)
     lock_when_away_toggled = pyqtSignal(bool)
     notification_mode_changed = pyqtSignal(str)  # "dim_screen" or "led_blink"
+    profile_changed = pyqtSignal(str)  # "sitting" or "standing"
+    preview_requested = pyqtSignal()
     quit_requested = pyqtSignal()
-
-    SENSITIVITY_OPTIONS = [
-        ("Low", 0.6),
-        ("Medium", 0.85),
-        ("High", 1.0),
-    ]
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -51,6 +40,10 @@ class TrayIcon(QObject):
         self.status_action.setEnabled(False)
         self.menu.addAction(self.status_action)
 
+        self.preview_action = QAction("📷 Posture Monitor & Tuning...", self.menu)
+        self.preview_action.triggered.connect(self.preview_requested.emit)
+        self.menu.addAction(self.preview_action)
+
         self.menu.addSeparator()
 
         self.enable_action = QAction("Enabled", self.menu)
@@ -61,28 +54,27 @@ class TrayIcon(QObject):
         )
         self.menu.addAction(self.enable_action)
 
-        # Recalibrate - simple action for single monitor, submenu for multiple
-        self.recalibrate_action = QAction("Recalibrate", self.menu)
-        self.recalibrate_action.triggered.connect(self.recalibrate_requested.emit)
-        self.menu.addAction(self.recalibrate_action)
+        # Profile menu (Sitting / Standing)
+        self.profile_menu = self.menu.addMenu("Profile")
+        self.sitting_action = QAction("Sitting", self.profile_menu)
+        self.sitting_action.setCheckable(True)
+        self.sitting_action.setChecked(True)
+        self.sitting_action.triggered.connect(
+            lambda: self._on_profile_selected("sitting")
+        )
+        self.profile_menu.addAction(self.sitting_action)
 
-        self.recalibrate_menu = self.menu.addMenu("Recalibrate")
-        self._calibrated_monitors: set[str] = set()
-        self._rebuild_recalibrate_menu()
+        self.standing_action = QAction("Standing", self.profile_menu)
+        self.standing_action.setCheckable(True)
+        self.standing_action.setChecked(False)
+        self.standing_action.triggered.connect(
+            lambda: self._on_profile_selected("standing")
+        )
+        self.profile_menu.addAction(self.standing_action)
+
+        self.menu.addSeparator()
 
         self.camera_menu = self.menu.addMenu("Camera")
-
-        sensitivity_menu = self.menu.addMenu("Sensitivity")
-        self.sensitivity_actions = []
-        for name, value in self.SENSITIVITY_OPTIONS:
-            action = QAction(name, sensitivity_menu)
-            action.setCheckable(True)
-            action.setChecked(value == 0.85)  # Default: Medium
-            action.triggered.connect(
-                lambda checked, v=value: self._on_sensitivity_changed(v)
-            )
-            sensitivity_menu.addAction(action)
-            self.sensitivity_actions.append((action, value))
 
         self.menu.addSeparator()
 
@@ -127,57 +119,8 @@ class TrayIcon(QObject):
         quit_action.triggered.connect(self.quit_requested.emit)
         self.menu.addAction(quit_action)
 
-    def _on_sensitivity_changed(self, value: float):
-        for action, v in self.sensitivity_actions:
-            action.setChecked(v == value)
-        self.sensitivity_changed.emit(value)
-
-    def _rebuild_recalibrate_menu(self):
-        """Rebuild the recalibrate UI based on monitor count."""
-        app = QApplication.instance()
-        screens = app.screens() if app else []
-
-        if len(screens) <= 1:
-            # Single monitor: show simple action, hide submenu
-            self.recalibrate_action.setVisible(True)
-            self.recalibrate_menu.menuAction().setVisible(False)
-        else:
-            # Multiple monitors: hide simple action, show submenu
-            self.recalibrate_action.setVisible(False)
-            self.recalibrate_menu.menuAction().setVisible(True)
-
-            self.recalibrate_menu.clear()
-
-            # "All Monitors" option
-            all_action = QAction("All Monitors", self.recalibrate_menu)
-            all_action.triggered.connect(self.recalibrate_requested.emit)
-            self.recalibrate_menu.addAction(all_action)
-
-            self.recalibrate_menu.addSeparator()
-
-            # Individual monitor options
-            for i, screen in enumerate(screens):
-                monitor_id = get_monitor_id(screen)
-                is_calibrated = monitor_id in self._calibrated_monitors
-
-                # Format: "HDMI-1 (Primary) [✓]" or "DP-2 [ ]"
-                label = screen.name()
-                if i == 0:
-                    label += " (Primary)"
-                label += " [✓]" if is_calibrated else " [ ]"
-
-                action = QAction(label, self.recalibrate_menu)
-                action.triggered.connect(
-                    lambda checked, mid=monitor_id: (
-                        self.recalibrate_monitor_requested.emit(mid)
-                    )
-                )
-                self.recalibrate_menu.addAction(action)
-
     def update_monitor_calibrations(self, calibrated_monitor_ids: set[str]):
-        """Update which monitors are calibrated and rebuild menu."""
-        self._calibrated_monitors = calibrated_monitor_ids
-        self._rebuild_recalibrate_menu()
+        """Retained for backwards compatibility."""
 
     def set_status(self, text: str):
         self.status_action.setText(f"Status: {text}")
@@ -231,11 +174,18 @@ class TrayIcon(QObject):
         self.lock_away_action.setChecked(enabled)
 
     def set_sensitivity(self, value: float):
-        """Update the sensitivity radio button selection."""
-        for action, v in self.sensitivity_actions:
-            action.setChecked(v == value)
+        """Retained for backwards compatibility."""
 
     def set_notification_mode(self, mode: str):
         """Update notification mode checkbox states."""
         self.dim_screen_action.setChecked(mode == "dim_screen")
         self.led_blink_action.setChecked(mode == "led_blink")
+
+    def _on_profile_selected(self, profile: str):
+        self.set_profile(profile)
+        self.profile_changed.emit(profile)
+
+    def set_profile(self, profile: str):
+        """Update checked state of profile menu actions."""
+        self.sitting_action.setChecked(profile == "sitting")
+        self.standing_action.setChecked(profile == "standing")
